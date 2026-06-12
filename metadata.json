@@ -1,0 +1,6 @@
+{
+  "name": "The Modern Gavel",
+  "description": "A premium, tech-forward platform for professional legal authority and modern networking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
