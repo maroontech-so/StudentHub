@@ -17,9 +17,17 @@ export function EventDetailsView() {
   const [regLoading, setRegLoading] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
+  const [guestGender, setGuestGender] = useState("Male");
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [, setLocation] = useLocation();
   const { profile } = useAuth();
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      setGuestEmail(auth.currentUser.email || "");
+      setGuestName(profile?.name || auth.currentUser.displayName || "");
+    }
+  }, [auth.currentUser, profile]);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [shareData, setShareData] = useState<{ isOpen: boolean; url: string; title: string; category: "Event" | "Bulletin" | "Portfolio" }>({
     isOpen: false,
@@ -76,8 +84,8 @@ export function EventDetailsView() {
 
     const isGuest = !auth.currentUser;
     const finalUserId = isGuest ? `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}` : auth.currentUser!.uid;
-    const finalUserName = isGuest ? guestName.trim() : (profile?.name || auth.currentUser!.displayName || auth.currentUser!.email?.split("@")[0] || "Student");
-    const finalUserEmail = isGuest ? guestEmail.trim() : (auth.currentUser!.email || "");
+    const finalUserName = guestName.trim();
+    const finalUserEmail = guestEmail.trim();
 
     if (!finalUserName || !finalUserEmail) {
       triggerToast("Please provide both name and email to secure a spot.", "error");
@@ -112,6 +120,7 @@ export function EventDetailsView() {
           userId: finalUserId,
           userName: finalUserName,
           userEmail: finalUserEmail,
+          gender: guestGender,
           customFields: formData,
           createdAt: new Date()
         });
@@ -380,36 +389,48 @@ export function EventDetailsView() {
                   </div>
                 )}
 
-                {!auth.currentUser && (
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Felix Kiprop"
-                        value={guestName}
-                        onChange={(e) => setGuestName(e.target.value)}
-                        className="w-full bg-[#0E0E0E] text-white border border-gavel-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-gavel-yellow/30 font-sans"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="e.g. felix@mku.ac.ke"
-                        value={guestEmail}
-                        onChange={(e) => setGuestEmail(e.target.value)}
-                        className="w-full bg-[#0E0E0E] text-white border border-gavel-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-gavel-yellow/30 font-sans"
-                      />
-                    </div>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Felix Kiprop"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      className="w-full bg-[#0E0E0E] text-white border border-gavel-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-gavel-yellow/30 font-sans"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
+                      Email address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. name@gmail.com or name@student.ac.ke"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      className="w-full bg-[#0E0E0E] text-white border border-gavel-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-gavel-yellow/30 font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
+                      Gender *
+                    </label>
+                    <select
+                      value={guestGender}
+                      onChange={(e) => setGuestGender(e.target.value)}
+                      className="w-full bg-[#0E0E0E] text-white border border-gavel-border rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-gavel-yellow/30 font-sans cursor-pointer"
+                    >
+                      <option value="Male" className="bg-[#121214]">Male</option>
+                      <option value="Female" className="bg-[#121214]">Female</option>
+                      <option value="Prefer not to say" className="bg-[#121214]">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
 
                 {/* Optional custom fields */}
                 {event.customQuestions && event.customQuestions.length > 0 && (

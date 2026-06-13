@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { fbfs, auth, db } from "../lib/firebase";
 import { Event, EventRegistration } from "../types";
 import { runTransaction, doc } from "firebase/firestore";
+import { fetchAndRenderEmailTemplate } from "../utils/emailHelper";
 import { 
   Calendar, 
   MapPin, 
@@ -17,39 +18,7 @@ import {
 import { ShareDialog } from "../components/ShareDialog";
 
 export function Minimap({ googleMapsLink, className = "w-full h-32 rounded-xl overflow-hidden border border-white/5 shadow-inner" }: { googleMapsLink?: string, className?: string }) {
-  if (!googleMapsLink) return null;
-  
-  let searchQuery = googleMapsLink;
-  try {
-    if (googleMapsLink.includes("q=")) {
-      const urlParams = new URLSearchParams(googleMapsLink.split("?")[1]);
-      searchQuery = urlParams.get("q") || googleMapsLink;
-    } else if (googleMapsLink.includes("maps/place/")) {
-      const parts = googleMapsLink.split("maps/place/");
-      if (parts[1]) {
-        searchQuery = decodeURIComponent(parts[1].split("/")[0]);
-      }
-    }
-  } catch (err) {
-    console.error("Error parsing google maps URL: ", err);
-  }
-
-  const encoded = encodeURIComponent(searchQuery);
-  const embedUrl = `https://maps.google.com/maps?q=${encoded}&amp;hl=en&amp;z=14&amp;output=embed`;
-  
-  return (
-    <div className={className}>
-      <iframe
-        title="Minimap"
-        width="100%"
-        height="100%"
-        style={{ border: 0, filter: "invert(90%) hue-rotate(180deg) grayscale(30%) contrast(110%)" }}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        src={embedUrl}
-      />
-    </div>
-  );
+  return null;
 }
 
 export function EventsView() {
@@ -291,6 +260,16 @@ export function EventsView() {
           ? new Date(selectedEvent.startDate.seconds * 1000).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" })
           : new Date(selectedEvent.startDate).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" });
         
+        const fullEventDate = `${eventDateStr} @ ${selectedEvent.startTime || "10:00 AM"}`;
+        
+        const rendered = await fetchAndRenderEmailTemplate("event_registration", {
+          applicantName: finalUserName,
+          applicantEmail: finalUserEmail,
+          eventTitle: selectedEvent.title,
+          eventDate: fullEventDate,
+          eventVenue: selectedEvent.venue || "Courtroom Auditorium"
+        });
+
         await fetch("/api/send-event-registration-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -298,13 +277,15 @@ export function EventsView() {
             applicantEmail: finalUserEmail,
             applicantName: finalUserName,
             eventTitle: selectedEvent.title,
-            eventDate: `${eventDateStr} @ ${selectedEvent.startTime || "10:00 AM"}`,
+            eventDate: fullEventDate,
             eventVenue: selectedEvent.venue || "Courtroom Auditorium",
             customFields: {
               "Year of Study": regYear,
               "Gender": regGender,
               ...customFields
-            }
+            },
+            customSubject: rendered?.customSubject || undefined,
+            customHtml: rendered?.customHtml || undefined
           })
         });
       } catch (mailErr) {
@@ -491,15 +472,7 @@ export function EventsView() {
                               )}
                             </div>
 
-                            {/* Sleek physical location Minimap card preview */}
-                            {!e.isExternal && e.googleMapsLink && (
-                              <div 
-                                className="w-full sm:w-44 h-24 rounded-2xl overflow-hidden border border-white/5 shadow-md shrink-0 mt-3 sm:mt-0" 
-                                onClick={(clickEvent) => clickEvent.stopPropagation()}
-                              >
-                                <Minimap googleMapsLink={e.googleMapsLink} className="w-full h-full" />
-                              </div>
-                            )}
+
                           </div>
                         );
                       })}
@@ -646,10 +619,10 @@ export function EventsView() {
 
                     {/* Email address field */}
                     <div className="space-y-1.5 text-left">
-                      <label className="block text-[10px] font-mono text-[#FFDE00] uppercase font-black tracking-wider">Student Email Address *</label>
+                      <label className="block text-[10px] font-mono text-[#FFDE00] uppercase font-black tracking-wider">Email Address (Personal or Student) *</label>
                       <input 
                         type="email"
-                        placeholder="e.g. name@student.mku.ac.ke"
+                        placeholder="e.g. name@gmail.com or name@student.mku.ac.ke"
                         value={regEmail}
                         onChange={(ev) => setRegEmail(ev.target.value)}
                         className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FFDE00] transition-colors"
@@ -833,13 +806,7 @@ export function EventsView() {
                       </div>
                     </div>
 
-                    {/* Minimap detailed map section also inside the details panel modal */}
-                    {!selectedEvent.isExternal && selectedEvent.googleMapsLink && (
-                      <div className="space-y-3">
-                        <h4 className="text-[10px] font-mono font-black text-gavel-muted uppercase tracking-widest">Interactive Chamber Minimap</h4>
-                        <Minimap googleMapsLink={selectedEvent.googleMapsLink} className="w-full h-44 rounded-2xl overflow-hidden border border-white/10 shadow-lg" />
-                      </div>
-                    )}
+
 
                     {/* Event Description Section */}
                     <div>

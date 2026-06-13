@@ -26,119 +26,110 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { applicantEmail, applicantName, eventTitle, eventDate, eventVenue, customFields } = req.body;
+    const { applicantEmail, applicantName, eventTitle, eventDate, eventVenue, customFields, customSubject, customHtml } = req.body;
     const { apiKey, fromEmail, isSendingToTestOnly, testEmail, verifiedDomain } = getResendConfig();
 
     // Map custom questionnaire RSVP details
     let fieldsHtml = "";
     if (customFields && Object.keys(customFields).length > 0) {
       fieldsHtml = `
-        <div style="background-color: #121214; padding: 18px; border-radius: 12px; border: 1px solid #1f1f23; margin: 20px 0; text-align: left;">
-          <h4 style="margin: 0 0 12px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #fcdd09; letter-spacing: 1px;">
-            Submitted RSVP Roster Details
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 24px 0; text-align: left;">
+          <h4 style="margin: 0 0 12px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #b45309; letter-spacing: 1px;">
+            Submitted Details
           </h4>
       `;
       for (const [k, v] of Object.entries(customFields)) {
         fieldsHtml += `
-          <p style="margin: 6px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #a1a1aa; line-height: 1.4;">
-            <strong style="color: #ffffff; font-weight: 600;">${k}:</strong> ${v}
+          <p style="margin: 6px 0; font-size: 13.5px; color: #475569; line-height: 1.4;">
+            <strong style="color: #0f172a; font-weight: 600;">${k}:</strong> ${v}
           </p>
         `;
       }
       fieldsHtml += `</div>`;
     }
 
-    const htmlContent = `
+    const defaultHtmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>RSVP Seat Confirmation Pass</title>
+        <title>Registration Confirmed</title>
       </head>
-      <body style="background-color: #020203; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #020203; padding: 40px 10px;">
+      <body style="background-color: #f8fafc; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 10px;">
           <tr>
             <td align="center">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #09090b; border: 1px solid #1f1f23; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                 <!-- Header -->
                 <tr>
-                  <td style="padding: 35px 40px 25px 40px; border-bottom: 1px solid #1f1f23; text-align: center; background: linear-gradient(135deg, #09090b 0%, #121214 100%);">
-                    <p style="margin: 0; font-family: 'Courier New', Courier, monospace; color: #fcdd09; font-size: 24px; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;">
-                      MKU LAW
+                  <td style="padding: 30px 40px; border-bottom: 1px solid #e2e8f0; background-color: #ffffff; text-align: left;">
+                    <p style="margin: 0; color: #b45309; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+                      MKU School of Law
                     </p>
-                    <p style="margin: 5px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; color: #22c55e; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
-                      &bull; SEAT RESERVATION CONFIRMED &bull;
+                    <p style="margin: 4px 0 0 0; font-size: 20px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">
+                      Student Hub Events
                     </p>
                   </td>
                 </tr>
 
                 <!-- Content Area -->
                 <tr>
-                  <td style="padding: 40px 40px 30px 40px;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td>
-                          <h1 style="margin: 0 0 15px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 950; color: #ffffff; line-height: 1.3; text-transform: uppercase; text-align: left;">
-                            YOUR RSVP IS SECURED
-                          </h1>
+                  <td style="padding: 45px 40px;">
+                    <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #0f172a;">
+                      Registration Confirmed
+                    </h2>
 
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; line-height: 1.6; color: #e4e4e7; margin: 15px 0; text-align: left;">
-                            Dear <strong>${applicantName}</strong>,
-                          </p>
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #a1a1aa; margin: 15px 0; text-align: left;">
-                            Your delegate entry credentials for the upcoming council symposium/assembly have been officially generated.
-                          </p>
+                    <p style="font-size: 15px; line-height: 1.6; color: #334155; margin: 15px 0;">
+                      Dear <strong>${applicantName}</strong>,
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.6; color: #334155; margin: 15px 0;">
+                      Thank you for registering for the upcoming event on the MKU Law Student Hub. Your registration has been successfully received, and your place has been reserved.
+                    </p>
 
-                          <!-- Ticket Pass layout -->
-                          <div style="background-color: #0c0c0e; border: 2px dashed #1f1f23; border-radius: 16px; padding: 25px; margin: 30px 0; text-align: left; position: relative;">
-                            <span style="display: inline-block; background-color: #22c55e; color: #000000; font-size: 9px; font-weight: 900; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1.5px; padding: 3px 10px; border-radius: 4px; margin-bottom: 15px;">
-                              OFFICIAL DIGITAL PASS
-                            </span>
+                    <!-- Ticket Pass layout -->
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; margin: 30px 0; text-align: left;">
+                      <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 755; color: #0f172a; text-transform: uppercase;">
+                        ${eventTitle}
+                      </h3>
 
-                            <h3 style="margin: 0 0 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 800; color: #ffffff; line-height: 1.3; text-transform: uppercase;">
-                              ${eventTitle}
-                            </h3>
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <tr>
+                          <td style="padding-bottom: 8px; font-size: 12px; color: #64748b; text-transform: uppercase; width: 120px; font-weight: 600;">
+                            Venue
+                          </td>
+                          <td style="padding-bottom: 8px; font-size: 14px; font-weight: 600; color: #334155;">
+                            ${eventVenue}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600;">
+                            Date & Time
+                          </td>
+                          <td style="font-size: 14px; font-weight: 600; color: #b45309;">
+                            ${eventDate}
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
 
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px; border-top: 1px solid #1f1f23; padding-top: 15px;">
-                              <tr>
-                                <td style="padding-bottom: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #71717a; text-transform: uppercase; width: 120px;">
-                                  Chamber Venue
-                                </td>
-                                <td style="padding-bottom: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #e4e4e7;">
-                                  ${eventVenue}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #71717a; text-transform: uppercase;">
-                                  Date & Time
-                                </td>
-                                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #fcdd09;">
-                                  ${eventDate}
-                                </td>
-                              </tr>
-                            </table>
-                          </div>
+                    ${fieldsHtml}
 
-                          ${fieldsHtml}
-
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12.5px; line-height: 1.6; color: #71717a; text-align: center; margin: 30px 0 10px 0;">
-                            Please present this digital confirmation of entry or the associate register ticket code when checking in at the physical or virtual venue.
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
+                    <p style="font-size: 13px; line-height: 1.6; color: #64748b; text-align: left; margin: 30px 0 10px 0;">
+                      Please keep this email as confirmation of your entry. If there are any updates or virtual links, we will notify you before the start.
+                    </p>
                   </td>
                 </tr>
 
                 <!-- Footer -->
                 <tr>
-                  <td style="padding: 25px 40px; background-color: #050506; border-top: 1px solid #1f1f23; text-align: center;">
-                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; color: #52525b; line-height: 1.4;">
-                      This receipt pass handles campus entry control validation. For seat modification, re-access the RSVP link directly on the Mooting Parliament Hub.
+                  <td style="padding: 30px 40px; background-color: #f1f5f9; border-top: 1px solid #e2e8f0; text-align: left;">
+                    <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.5;">
+                      Regards,<br/>
+                      <strong>MKU Law Student Hub Team</strong>
                     </p>
-                    <p style="margin: 10px 0 0 0; font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #3f3f46; letter-spacing: 1px;">
-                      Secured RSVP: ${applicantEmail} &bull; Verified: ${verifiedDomain}
+                    <p style="margin: 15px 0 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                      This email was sent because you registered for an event on the MKU Law Student Hub. If you need to change your RSVP or cancel, please check the event page on the hub.
                     </p>
                   </td>
                 </tr>
@@ -153,8 +144,8 @@ export default async function handler(req: Request, res: Response) {
     const payload = {
       from: fromEmail,
       to: isSendingToTestOnly ? [testEmail] : [applicantEmail],
-      subject: `[RSVP Certified] Your seat pass for ${eventTitle} is reserved!`,
-      html: htmlContent
+      subject: customSubject || `Registration Confirmed – ${eventTitle}`,
+      html: customHtml || defaultHtmlContent
     };
 
     console.log("[Resend Seats-RSVP] Mailing ticket feedback:", {

@@ -5,10 +5,12 @@ import { auth, fbfs, rtdb, uploadToImgBB } from "../lib/firebase";
 import { ref, set, onValue } from "firebase/database";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { Announcement, Event, UserProfile, Club, GalleryItem, GalleryAlbum, MarketplaceProfile, VaultPost, EventRegistration } from "../types";
+import { fetchAndRenderEmailTemplate } from "../utils/emailHelper";
 
 import { AdminSeoModal } from "../components/AdminSeoModal";
 import { AdminNewsletterModal } from "../components/AdminNewsletterModal";
 import { AdminEventModal } from "../components/AdminEventModal";
+import { EmailStudio } from "../components/EmailStudio";
 
 import { 
   Shield, 
@@ -57,7 +59,7 @@ export function AdminView() {
   const [, setLocation] = useLocation();
 
   // Selected tab
-  const [activeTab, setActiveTab] = useState<"overview" | "news" | "events" | "assets" | "vault" | "roster" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "news" | "events" | "assets" | "vault" | "roster" | "settings" | "emails">("overview");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Authentication credentials override if not validated
@@ -548,6 +550,14 @@ export function AdminView() {
       
       const dateStr = new Date(event.startDate).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) + (event.startTime ? ` @ ${event.startTime}` : "");
       
+      const rendered = await fetchAndRenderEmailTemplate("event_registration", {
+        applicantName: reg.userName,
+        applicantEmail: reg.userEmail,
+        eventTitle: event.title,
+        eventDate: dateStr,
+        eventVenue: event.venue || "Campus Auditorium"
+      });
+
       await fetch("/api/send-event-registration-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -557,7 +567,9 @@ export function AdminView() {
           eventTitle: event.title,
           eventDate: dateStr,
           eventVenue: event.venue || "Campus Auditorium",
-          customFields: reg.customFields || {}
+          customFields: reg.customFields || {},
+          customSubject: rendered?.customSubject || undefined,
+          customHtml: rendered?.customHtml || undefined
         })
       });
       
@@ -589,6 +601,14 @@ export function AdminView() {
     try {
       const dateStr = new Date(event.startDate).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) + (event.startTime ? ` @ ${event.startTime}` : "");
       
+      const rendered = await fetchAndRenderEmailTemplate("event_reminder", {
+        applicantName: reg.userName,
+        applicantEmail: reg.userEmail,
+        eventTitle: event.title,
+        eventDate: dateStr,
+        eventVenue: event.venue || "Campus Auditorium"
+      });
+
       const res = await fetch("/api/send-event-reminder-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -597,7 +617,9 @@ export function AdminView() {
           applicantName: reg.userName,
           eventTitle: event.title,
           eventDate: dateStr,
-          eventVenue: event.venue || "Campus Auditorium"
+          eventVenue: event.venue || "Campus Auditorium",
+          customSubject: rendered?.customSubject || undefined,
+          customHtml: rendered?.customHtml || undefined
         })
       });
       
@@ -747,7 +769,8 @@ export function AdminView() {
             { id: "assets", label: "Gallery Vault", icon: <ImageIcon size={18} /> },
             { id: "vault", label: "Suggestions", icon: <Shield size={18} /> },
             { id: "roster", label: "Students", icon: <ShieldCheck size={18} /> },
-            { id: "settings", label: "Tuning Controls", icon: <Layers size={18} /> }
+            { id: "settings", label: "Tuning Controls", icon: <Layers size={18} /> },
+            { id: "emails", label: "Email Studio", icon: <Mail size={18} /> }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1535,6 +1558,118 @@ export function AdminView() {
                         </div>
                       </div>
 
+                      {/* Dynamic Custom Form Question Responses Graphs */}
+                      {selectedEventForAnalysis.customQuestions && selectedEventForAnalysis.customQuestions.length > 0 && (
+                        <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-6 space-y-4 shadow-xl">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                            <div className="space-y-0.5">
+                              <h4 className="text-xs font-mono font-black text-[#FFDE00] uppercase tracking-widest flex items-center gap-1.5">
+                                📊 Custom Questionnaire Demographics & Feedback
+                              </h4>
+                              <p className="text-[10px] text-gray-400 font-sans font-medium">Live aggregated frequency patterns and user selections</p>
+                            </div>
+                            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-bold">Dynamic Analysis</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {selectedEventForAnalysis.customQuestions.map((q) => {
+                              // Get responses for this specific custom field label
+                              const rawAnswers = eventRegistrations.map((r) => r.customFields?.[q.label] || r.customFields?.[q.id] || "");
+                              const filteredAnswers = rawAnswers.filter((ans) => ans !== undefined && ans !== "");
+
+                              if (q.type === "checkbox") {
+                                // Calculate Yes/No stats
+                                const yesCount = filteredAnswers.filter((ans) => {
+                                  const lower = String(ans).toLowerCase();
+                                  return lower === "yes" || lower === "true" || ans === true;
+                                }).length;
+                                const noCount = filteredAnswers.length - yesCount;
+                                const total = filteredAnswers.length;
+
+                                const yesPct = total > 0 ? Math.round((yesCount / total) * 100) : 0;
+                                const noPct = total > 0 ? Math.round((noCount / total) * 100) : 0;
+
+                                return (
+                                  <div key={q.id} className="bg-black/25 border border-white/5 rounded-xl p-4.5 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs font-extrabold text-white truncate max-w-[80%]" title={q.label}>{q.label}</span>
+                                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/5 border border-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">Yes / No</span>
+                                    </div>
+                                    <div className="space-y-2.5 font-sans">
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-[11px] text-gray-300">
+                                          <span>Yes (Agreed)</span>
+                                          <span className="font-mono text-[10px] text-gray-400 font-black">{yesCount} ({yesPct}%)</span>
+                                        </div>
+                                        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+                                          <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${yesPct}%` }}></div>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-[11px] text-gray-300">
+                                          <span>No (Declined)</span>
+                                          <span className="font-mono text-[10px] text-gray-400 font-black">{noCount} ({noPct}%)</span>
+                                        </div>
+                                        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden">
+                                          <div className="h-full bg-red-400 rounded-full transition-all duration-500" style={{ width: `${noPct}%` }}></div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                // For text, number, email: build frequency statistics
+                                const freq: Record<string, number> = {};
+                                filteredAnswers.forEach((ans) => {
+                                  let txt = String(ans).trim();
+                                  if (!txt) return;
+                                  freq[txt] = (freq[txt] || 0) + 1;
+                                });
+
+                                const sorted = Object.entries(freq)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .slice(0, 4); // show top 4 answers
+
+                                return (
+                                  <div key={q.id} className="bg-black/25 border border-white/5 rounded-xl p-4.5 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs font-bold text-white truncate max-w-[70%]" title={q.label}>{q.label}</span>
+                                      <span className="text-[9px] font-mono text-gavel-yellow bg-gavel-yellow/5 border border-gavel-yellow/10 px-1.5 py-0.5 rounded shrink-0 uppercase">{q.type}</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {sorted.length === 0 ? (
+                                        <div className="text-[10px] text-gray-500 font-mono py-2">No response submissions matching field.</div>
+                                      ) : (
+                                        sorted.map(([reply, count], idx) => {
+                                          const pct = filteredAnswers.length > 0 ? Math.round((count / filteredAnswers.length) * 100) : 0;
+                                          return (
+                                            <div key={idx} className="space-y-1 text-left">
+                                              <div className="flex justify-between text-[11px] text-gray-300">
+                                                <span className="truncate max-w-[75%] font-serif italic text-gray-400">"{reply}"</span>
+                                                <span className="font-mono text-[10px] text-gray-400 shrink-0 font-black">{count}x ({pct}%)</span>
+                                              </div>
+                                              <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                <div 
+                                                  className="h-full bg-[#FFDE00] rounded-full transition-all duration-500" 
+                                                  style={{ 
+                                                    width: `${pct}%`,
+                                                    opacity: 1 - (idx * 0.2)
+                                                  }}
+                                                ></div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Registrants Data Table */}
                       <div className="space-y-3 pt-4">
                         <div className="flex justify-between items-center">
@@ -1569,6 +1704,18 @@ export function AdminView() {
                                         <div>
                                           <p className="font-extrabold text-white">{reg.userName}</p>
                                           <span className="text-[10px] text-gray-500 font-mono uppercase">ID: {reg.id.substring(0, 8)}</span>
+                                          
+                                          {/* Custom Form Question Submissions */}
+                                          {reg.customFields && Object.keys(reg.customFields).length > 0 && (
+                                            <div className="mt-1.5 bg-white/[0.02] border border-white/5 rounded-lg p-2 text-[10px] space-y-1 text-gray-400 max-w-[280px]">
+                                              {Object.entries(reg.customFields).map(([label, response]) => (
+                                                <div key={label} className="truncate">
+                                                  <span className="font-mono text-[9px] uppercase tracking-wider text-[#FFDE00]/80 font-black">{label}:</span>{" "}
+                                                  <span className="text-gray-300 font-medium font-sans">"{response}"</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
                                       </td>
                                       <td className="p-4 font-mono text-[11px] text-gray-300">{reg.userEmail}</td>
@@ -2209,6 +2356,13 @@ export function AdminView() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB 8: EMAIL TEMPLATES ENGINE */}
+          {activeTab === "emails" && (
+            <div className="animate-fade-in text-left">
+              <EmailStudio />
             </div>
           )}
 

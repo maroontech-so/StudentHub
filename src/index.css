@@ -270,16 +270,16 @@ body.light-mode .border.border-gavel-border.bg-gavel-card.rounded-2xl:hover {
 .bg-layer {
   position: fixed;
   inset: 0;
-  z-index: -1;
-  background-image: url('https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=2000&auto=format&fit=crop');
+  z-index: 0;
+  background-image: url('https://i.pinimg.com/1200x/4b/98/2f/4b982f0d75edfac670020d36ce6c1808.jpg');
   background-size: cover;
   background-position: center;
-  opacity: 0.12;
+  opacity: 0.01;
   pointer-events: none;
 }
 
 body.light-mode .bg-layer {
-  opacity: 0.035;
+  opacity: 0.065;
 }
 
 .bg-gradient-overlay {

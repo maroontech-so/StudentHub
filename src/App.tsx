@@ -59,6 +59,7 @@ export function App() {
   const [globalSearch, setGlobalSearch] = useState("");
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     setGlobalSearch("");
     window.dispatchEvent(new CustomEvent("global-search", { detail: "" }));
   }, [location]);
@@ -165,24 +166,7 @@ export function App() {
         <div className="blob-1"></div>
         <div className="blob-2"></div>
 
-        {/* Floating Search Bar in elegant minimalistic top-left alignment (opposite theme toggle) */}
-        {location !== "/admin" && (
-          <div className="fixed top-6 left-6 z-50 flex items-center gap-2 max-w-[130px] min-[400px]:max-w-[200px] sm:max-w-[260px] w-full">
-            <div className="relative w-full">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gavel-muted pointer-events-none" />
-              <input
-                type="search"
-                placeholder="Search..."
-                value={globalSearch}
-                onChange={(e) => {
-                  setGlobalSearch(e.target.value);
-                  window.dispatchEvent(new CustomEvent("global-search", { detail: e.target.value }));
-                }}
-                className="w-full bg-[#0E0E0E]/80 backdrop-blur-md border border-gavel-border rounded-xl pl-9 pr-3 py-2 text-[11px] sm:text-xs text-white focus:outline-none focus:border-gavel-yellow/40 transition-all font-sans placeholder-gavel-muted/70 shadow-lg"
-              />
-            </div>
-          </div>
-        )}
+        {/* Floating Search Bar removed to avoid look-and-feel issues as requested */}
 
         {/* Floating Action Controls in high-contrast top-right alignment */}
         <div className="fixed top-6 right-6 z-50 flex items-center gap-3">

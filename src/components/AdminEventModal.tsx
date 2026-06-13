@@ -465,23 +465,7 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
                         </div>
                       )}
 
-                      {/* Live Minimap Embed Preview container */}
-                      {googleMapsLink.trim() && (
-                        <div className="space-y-1">
-                          <span className="text-[9px] uppercase tracking-wider font-mono text-gavel-yellow font-black">Live Minimap Position Preview:</span>
-                          <div className="w-full h-32 rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                            <iframe
-                              title="Event Mini map selection"
-                              width="100%"
-                              height="100%"
-                              style={{ border: 0, filter: "invert(90%) hue-rotate(180deg) grayscale(30%) contrast(110%)" }}
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                              src={`https://maps.google.com/maps?q=${encodeURIComponent(googleMapsLink.trim())}&amp;hl=en&amp;z=14&amp;output=embed`}
-                            />
-                          </div>
-                        </div>
-                      )}
+
                     </div>
                   )}
                 </div>

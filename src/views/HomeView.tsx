@@ -713,11 +713,11 @@ export function HomeView() {
           </Link>
         </div>
         
-        <div className="flex gap-5 overflow-x-auto hide-scroll snap-x pb-4">
+        <div className="flex gap-4 overflow-x-auto hide-scroll snap-x pb-4">
           {galleryImages && galleryImages.length > 0 ? (
             galleryImages.map((snap) => (
               <Link key={snap.id} href="/gallery">
-                <div className="relative min-w-[260px] h-[350px] rounded-3xl overflow-hidden group snap-start cursor-pointer bg-gavel-card border border-white/5">
+                <div className="relative min-w-[180px] sm:min-w-[200px] h-[240px] sm:h-[260px] rounded-2xl overflow-hidden group snap-start cursor-pointer bg-gavel-card border border-white/5">
                   <img 
                     src={snap.imageUrl} 
                     alt="Campus Snap"
@@ -725,9 +725,9 @@ export function HomeView() {
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-90"></div>
-                  <div className="absolute bottom-0 left-0 p-6 w-full text-left">
-                    <h3 className="text-white font-bold text-lg mb-1 truncate">{snap.caption || "Campus Moment"}</h3>
-                    <span className="text-gavel-yellow font-mono text-[9px] tracking-widest uppercase">
+                  <div className="absolute bottom-0 left-0 p-4 w-full text-left">
+                    <h3 className="text-white font-bold text-sm mb-0.5 truncate">{snap.caption || "Campus Moment"}</h3>
+                    <span className="text-gavel-yellow font-mono text-[8px] tracking-widest uppercase">
                       {snap.category || "GALLERY"}
                     </span>
                   </div>
@@ -735,18 +735,18 @@ export function HomeView() {
               </Link>
             ))
           ) : (
-            <div className="relative w-full h-[350px] rounded-3xl bg-[#09090b] border border-white/5 flex flex-col justify-center items-center text-center p-6 shrink-0 md:min-w-[400px]">
-              <ImageIcon className="w-8 h-8 text-gavel-muted mb-2 opacity-30" />
-              <p className="text-gavel-muted font-mono text-[10px] uppercase tracking-wider">No snapshots published yet</p>
+            <div className="relative w-full h-[240px] sm:h-[260px] rounded-2xl bg-[#09090b] border border-white/5 flex flex-col justify-center items-center text-center p-6 shrink-0 md:min-w-[400px]">
+              <ImageIcon className="w-6 h-6 text-gavel-muted mb-2 opacity-30" />
+              <p className="text-gavel-muted font-mono text-[9px] uppercase tracking-wider">No snapshots published yet</p>
             </div>
           )}
           {/* Static design card at the end */}
           <Link href="/gallery">
-            <div className="relative min-w-[260px] h-[350px] rounded-3xl overflow-hidden group snap-start cursor-pointer bg-[#EBE9E0] border border-white/5 flex flex-col justify-between p-6 text-black shrink-0">
-              <span className="font-black text-3xl text-left">M.</span>
+            <div className="relative min-w-[180px] sm:min-w-[200px] h-[240px] sm:h-[260px] rounded-2xl overflow-hidden group snap-start cursor-pointer bg-[#EBE9E0] border border-white/5 flex flex-col justify-between p-4 text-black shrink-0">
+              <span className="font-black text-2xl text-left">M.</span>
               <div className="text-left">
-                <p className="font-serif italic font-bold text-sm">"The law is lived within these halls."</p>
-                <span className="text-[9px] font-mono mt-2 block opacity-50">MKU PRESS</span>
+                <p className="font-serif italic font-bold text-xs">"The law is lived within these halls."</p>
+                <span className="text-[8px] font-mono mt-1 block opacity-50 font-black">MKU PRESS</span>
               </div>
             </div>
           </Link>

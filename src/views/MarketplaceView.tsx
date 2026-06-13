@@ -5,6 +5,7 @@ import { MarketplaceProfile, CatalogItem, BusinessRating, PromotionItem } from "
 import { useAuth } from "../App";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
+import { fetchAndRenderEmailTemplate } from "../utils/emailHelper";
 import { 
   Store, 
   Search, 
@@ -257,23 +258,33 @@ export function MarketplaceView() {
     // If vendor has profile view alerting enabled, trigger instant lead mailshot
     if (biz.emailNotificationsEnabled !== false && biz.contactEmail) {
       console.log(`[Marketplace] Alerting active vendor ${biz.businessName} of profile discovery view...`);
-      fetch("/api/alert-vendor", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          vendorEmail: biz.contactEmail,
-          vendorName: biz.ownerName || "Business Owner",
-          businessName: biz.businessName
-        })
-      })
-      .then(res => {
-        if (!res.ok) console.warn("Vendor alert delivery resolved with non-200 status.");
-      })
-      .catch(err => {
-        console.error("Vendor alert failure during profile view hook:", err);
-      });
+      
+      const triggerAlert = async () => {
+        try {
+          const rendered = await fetchAndRenderEmailTemplate("marketplace_lead", {
+            vendorName: biz.ownerName || "Business Owner",
+            businessName: biz.businessName
+          });
+
+          await fetch("/api/alert-vendor", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              vendorEmail: biz.contactEmail,
+              vendorName: biz.ownerName || "Business Owner",
+              businessName: biz.businessName,
+              customSubject: rendered?.customSubject || undefined,
+              customHtml: rendered?.customHtml || undefined
+            })
+          });
+        } catch (err) {
+          console.error("Vendor alert failure during profile view hook:", err);
+        }
+      };
+
+      triggerAlert();
     }
   };
 

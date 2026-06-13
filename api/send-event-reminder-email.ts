@@ -26,101 +26,93 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { applicantEmail, applicantName, eventTitle, eventDate, eventVenue } = req.body;
+    const { applicantEmail, applicantName, eventTitle, eventDate, eventVenue, customSubject, customHtml } = req.body;
     const { apiKey, fromEmail, isSendingToTestOnly, testEmail, verifiedDomain } = getResendConfig();
 
-    const htmlContent = `
+    const defaultHtmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Upcoming Assembly Reminder</title>
+        <title>Event Reminder</title>
       </head>
-      <body style="background-color: #020203; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #020203; padding: 40px 10px;">
+      <body style="background-color: #f8fafc; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 10px;">
           <tr>
             <td align="center">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #09090b; border: 1px solid #1f1f23; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                 <!-- Header -->
                 <tr>
-                  <td style="padding: 35px 40px 25px 40px; border-bottom: 1px solid #1f1f23; text-align: center; background: linear-gradient(135deg, #09090b 0%, #121214 100%);">
-                    <p style="margin: 0; font-family: 'Courier New', Courier, monospace; color: #fcdd09; font-size: 24px; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;">
-                      MKU LAW
+                  <td style="padding: 30px 40px; border-bottom: 1px solid #e2e8f0; background-color: #ffffff; text-align: left;">
+                    <p style="margin: 0; color: #b45309; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+                      MKU School of Law
                     </p>
-                    <p style="margin: 5px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; color: #f59e0b; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
-                      &bull; COMRADE ASSEMBLY ALERT &bull;
+                    <p style="margin: 4px 0 0 0; font-size: 20px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">
+                      Student Hub Events
                     </p>
                   </td>
                 </tr>
 
                 <!-- Content Area -->
                 <tr>
-                  <td style="padding: 40px 40px 30px 40px;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td>
-                          <!-- Urgent Pill -->
-                          <div style="text-align: left; margin-bottom: 20px;">
-                            <span style="display: inline-block; background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); color: #f59e0b; font-size: 10px; font-weight: 800; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1px; padding: 4px 12px; border-radius: 6px;">
-                              ⏳ HAPPENING SOON
-                            </span>
-                          </div>
+                  <td style="padding: 45px 40px;">
+                    <span style="display: inline-block; background-color: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 4px 12px; border-radius: 6px; margin-bottom: 20px;">
+                      ⏳ Coming Up Soon
+                    </span>
 
-                          <h1 style="margin: 0 0 15px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 950; color: #ffffff; line-height: 1.3; text-transform: uppercase; text-align: left;">
-                            EVENT ASSEMBLY REMINDER
-                          </h1>
+                    <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #0f172a;">
+                      Reminder: Upcoming Event
+                    </h2>
 
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14.5px; line-height: 1.6; color: #e4e4e7; margin: 15px 0; text-align: left;">
-                            Dear <strong>${applicantName}</strong>,
-                          </p>
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #a1a1aa; margin: 15px 0; text-align: left;">
-                            This is an automated prompt reminding you that the legislative assembly or student symposium you RSVP'ed for will begin shortly. Please allocate sufficient travel/entry setup time.
-                          </p>
+                    <p style="font-size: 15px; line-height: 1.6; color: #334155; margin: 15px 0;">
+                      Hello <strong>${applicantName}</strong>,
+                    </p>
+                    <p style="font-size: 15px; line-height: 1.6; color: #334155; margin: 15px 0;">
+                      This is a friendly reminder that the event you registered for on the MKU Law Student Hub will take place soon. Please arrive a few minutes early to allow time for check-in.
+                    </p>
 
-                          <!-- Pass Layout -->
-                          <div style="background-color: #121214; border: 1px solid #1f1f23; border-radius: 16px; padding: 25px; margin: 30px 0; text-align: left;">
-                            <p style="margin: 0 0 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: bold; color: #ffffff; text-transform: uppercase;">
-                              ${eventTitle}
-                            </p>
+                    <!-- Card Layout -->
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; margin: 30px 0; text-align: left;">
+                      <h3 style="margin: 0 0 15px 0; font-size: 16px; font-weight: 755; color: #0f172a; text-transform: uppercase;">
+                        ${eventTitle}
+                      </h3>
 
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px; border-top: 1px solid #1f1f23; padding-top: 15px;">
-                              <tr>
-                                <td style="padding-bottom: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #71717a; text-transform: uppercase; width: 120px;">
-                                  Chamber Venue
-                                </td>
-                                <td style="padding-bottom: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #e4e4e7;">
-                                  ${eventVenue}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #71717a; text-transform: uppercase;">
-                                  Date & Time
-                                </td>
-                                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #fcdd09;">
-                                  ${eventDate}
-                                </td>
-                              </tr>
-                            </table>
-                          </div>
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <tr>
+                          <td style="padding-bottom: 8px; font-size: 12px; color: #64748b; text-transform: uppercase; width: 120px; font-weight: 600;">
+                            Venue
+                          </td>
+                          <td style="padding-bottom: 8px; font-size: 14px; font-weight: 600; color: #334155;">
+                            ${eventVenue}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600;">
+                            Date & Time
+                          </td>
+                          <td style="font-size: 14px; font-weight: 600; color: #b45309;">
+                            ${eventDate}
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
 
-                          <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12.5px; line-height: 1.6; color: #71717a; text-align: center; margin: 30px 0 10px 0;">
-                            Ensure your Digital E-Pass QR code is saved on your responsive device layout to bypass entry security checks smoothly.
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
+                    <p style="font-size: 13px; line-height: 1.6; color: #64748b; text-align: left; margin: 30px 0 10px 0;">
+                      We look forward to seeing you there! If you can no longer attend, please take a moment to update your RSVP status on the hub so another student can take your spot.
+                    </p>
                   </td>
                 </tr>
 
                 <!-- Footer -->
                 <tr>
-                  <td style="padding: 25px 40px; background-color: #050506; border-top: 1px solid #1f1f23; text-align: center;">
-                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; color: #52525b; line-height: 1.4;">
-                      This notification was issued automatically by the Student Parliament portal administrator. To manage future email alerts, update your digital profile setup.
+                  <td style="padding: 30px 40px; background-color: #f1f5f9; border-top: 1px solid #e2e8f0; text-align: left;">
+                    <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.5;">
+                      Regards,<br/>
+                      <strong>MKU Law Student Hub Team</strong>
                     </p>
-                    <p style="margin: 10px 0 0 0; font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #3f3f46; letter-spacing: 1px;">
-                      Trigger Destination: ${applicantEmail} &bull; Verified: ${verifiedDomain}
+                    <p style="margin: 15px 0 0 0; font-size: 11px; color: #94a3b8; line-height: 1.4; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                      Sent by MKU Law Student Hub. If you have any questions or feedback about this event, please contact the coordinator or visit the event details page.
                     </p>
                   </td>
                 </tr>
@@ -135,8 +127,8 @@ export default async function handler(req: Request, res: Response) {
     const payload = {
       from: fromEmail,
       to: isSendingToTestOnly ? [testEmail] : [applicantEmail],
-      subject: `[Reminder] Upcoming Session: ${eventTitle}`,
-      html: htmlContent
+      subject: customSubject || `Event Reminder: ${eventTitle}`,
+      html: customHtml || defaultHtmlContent
     };
 
     console.log("[Resend Seats-Reminder] Mailing notification pass:", {

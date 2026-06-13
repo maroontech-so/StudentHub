@@ -27,8 +27,14 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { subject, postTitle, featuredImage, audience, emails, blocks } = req.body;
+    const { subject, postTitle, featuredImage, audience, emails, blocks, customSubject, customHtml } = req.body;
     const { apiKey, fromEmail, isSendingToTestOnly, testEmail, verifiedDomain } = getResendConfig();
+
+    // Helper to escape potential raw HTML/XML tags (e.g. <ANNOUNCEMENT>) in user-generated text
+    const escapeUserText = (text: string): string => {
+      if (!text) return "";
+      return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    };
 
     // Map content blocks to clean, inline-styled tables for robust email client rendering
     let blocksHtml = "";
@@ -36,26 +42,28 @@ export default async function handler(req: Request, res: Response) {
       blocksHtml = blocks.map((block: any) => {
         if (block.type === "h1") {
           return `
-            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 20px; color: #ffffff; font-weight: 800; border-bottom: 2px solid #fcdd09; padding-bottom: 6px; margin-top: 25px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-              ${block.content || ""}
+            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 18px; color: #0f172a; font-weight: 800; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 25px; margin-bottom: 12px;">
+              ${escapeUserText(block.content || "")}
             </h2>
           `;
         } else if (block.type === "h2") {
           return `
-            <h3 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; color: #fcdd09; font-weight: 700; margin-top: 20px; margin-bottom: 8px; text-transform: uppercase;">
-              ${block.content || ""}
+            <h3 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; color: #b45309; font-weight: 700; margin-top: 20px; margin-bottom: 8px;">
+              ${escapeUserText(block.content || "")}
             </h3>
           `;
         } else if (block.type === "image" && block.content) {
           return `
-            <div style="margin: 22px 0; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; text-align: center; background-color: #09090b;">
+            <div style="margin: 22px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; text-align: center; background-color: #f8fafc;">
               <img src="${block.content}" style="width: 100%; height: auto; display: block; max-width: 100%;" />
             </div>
           `;
         } else {
-          const safeText = (block.content || "").replace(/\n/g, "<br/>");
+          // Newlines converted to br, but content safely escaped first!
+          const escapedContent = escapeUserText(block.content || "");
+          const safeText = escapedContent.replace(/\n/g, "<br/>");
           return `
-            <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.62; color: #c4c4c6; margin: 12px 0;">
+            <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; line-height: 1.6; color: #334155; margin: 12px 0;">
               ${safeText || ""}
             </p>
           `;
@@ -63,36 +71,36 @@ export default async function handler(req: Request, res: Response) {
       }).join("");
     } else {
       blocksHtml = `
-        <p style="font-size: 14px; line-height: 1.62; color: #c4c4c6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 12px 0;">
+        <p style="font-size: 14.5px; line-height: 1.6; color: #334155; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 12px 0;">
           Greetings students and colleagues,
         </p>
-        <p style="font-size: 14px; line-height: 1.62; color: #c4c4c6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 12px 0;">
-          A new official bulletin briefing has been enacted: <strong>${postTitle || "Latest Gazette Release"}</strong>. Open the live parliament hub platform to inspect files, review records and participate in active student discussions.
+        <p style="font-size: 14.5px; line-height: 1.6; color: #334155; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 12px 0;">
+          A new bulletin update has been published: <strong>${escapeUserText(postTitle || "Latest Hub Update")}</strong>. Log in to the MKU Law Student Hub to inspect recent notices, view details, and participate in current activities.
         </p>
       `;
     }
 
-    const htmlContent = `
+    const defaultHtmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${subject || "Campus Briefing"}</title>
+        <title>${subject || "Campus Update"}</title>
       </head>
-      <body style="background-color: #020203; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #020203; padding: 40px 10px;">
+      <body style="background-color: #f8fafc; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 10px;">
           <tr>
             <td align="center">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #09090b; border: 1px solid #1f1f23; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                 <!-- Header Banner -->
                 <tr>
-                  <td style="padding: 35px 40px 25px 40px; border-bottom: 1px solid #1f1f23; text-align: center; background: linear-gradient(135deg, #09090b 0%, #121214 100%);">
-                    <p style="margin: 0; font-family: 'Courier New', Courier, monospace; color: #fcdd09; font-size: 24px; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;">
-                      MKU LAW
+                  <td style="padding: 30px 40px; border-bottom: 1px solid #e2e8f0; background-color: #ffffff; text-align: left;">
+                    <p style="margin: 0; color: #b45309; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+                      MKU School of Law
                     </p>
-                    <p style="margin: 5px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; color: #a1a1aa; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;">
-                      STUDENT PARLIAMENT HUB
+                    <p style="margin: 4px 0 0 0; font-size: 20px; color: #0f172a; font-weight: 800; letter-spacing: -0.5px;">
+                      Law Student Hub Noticeboard
                     </p>
                   </td>
                 </tr>
@@ -101,25 +109,25 @@ export default async function handler(req: Request, res: Response) {
                 ${featuredImage ? `
                 <tr>
                   <td style="padding: 0;">
-                    <img src="${featuredImage}" alt="Cover Image" style="width: 100%; height: auto; display: block; max-width: 100%; border-bottom: 1px solid #1f1f23;" />
+                    <img src="${featuredImage}" alt="Cover Image" style="width: 100%; height: auto; display: block; max-width: 100%; border-bottom: 1px solid #e2e8f0;" />
                   </td>
                 </tr>
                 ` : ""}
 
                 <!-- Content Area -->
                 <tr>
-                  <td style="padding: 40px 40px 30px 40px;">
+                  <td style="padding: 45px 40px;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
                         <td>
                           <!-- Small Category Pill -->
-                          <span style="display: inline-block; background-color: rgba(252, 221, 9, 0.1); border: 1px solid rgba(252, 221, 9, 0.2); color: #fcdd09; font-size: 10px; font-weight: 800; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 6px; margin-bottom: 15px;">
-                            ${(audience || "all").toUpperCase()} BULLETIN
+                          <span style="display: inline-block; background-color: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 10px; font-weight: 800; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 6px; margin-bottom: 15px;">
+                            ${(audience || "all").toUpperCase()} Announcement
                           </span>
 
                           <!-- main Title -->
-                          <h1 style="margin: 0 0 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 900; color: #ffffff; line-height: 1.3; text-transform: uppercase; tracking: -0.5px;">
-                            ${postTitle || "Special Release Board Briefing"}
+                          <h1 style="margin: 0 0 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #0f172a; line-height: 1.3;">
+                            ${escapeUserText(postTitle || "Official Bulletin Briefing")}
                           </h1>
 
                           <!-- Blocks Section -->
@@ -128,15 +136,9 @@ export default async function handler(req: Request, res: Response) {
                           </div>
 
                           <!-- Call to Action Button -->
-                          <div style="text-align: center; margin: 35px 0 20px 0;">
-                            <!--[if mso]>
-                            <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office: mso" href="https://studenthubmku.xyz/" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="21%" stroke="f" fillcolor="#fcdd09">
-                              <w:anchorlock/>
-                              <center style="color:#000000;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">ACCESS RELEASE PORTAL</center>
-                            </v:roundrect>
-                            <![endif]-->
-                            <a href="https://studenthubmku.xyz/" target="_blank" style="background-color: #fcdd09; color: #000000; padding: 16px 32px; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 800; font-size: 12px; border-radius: 12px; text-transform: uppercase; display: inline-block; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(252, 221, 9, 0.2); transition: all 0.2s ease;">
-                              Access Release Portal &rarr;
+                          <div style="text-align: left; margin: 35px 0 20px 0;">
+                            <a href="https://studenthubmku.xyz/" target="_blank" style="background-color: #0f172a; color: #ffffff; padding: 14px 28px; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 700; font-size: 13px; border-radius: 8px; text-transform: uppercase; display: inline-block; letter-spacing: 0.5px;">
+                              Open Student Hub &rarr;
                             </a>
                           </div>
                         </td>
@@ -147,13 +149,10 @@ export default async function handler(req: Request, res: Response) {
 
                 <!-- Privacy Footer -->
                 <tr>
-                  <td style="padding: 30px 40px; background-color: #050506; border-top: 1px solid #1f1f23; text-align: center;">
-                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #71717a; line-height: 1.5;">
-                      This broadcast is sent to members registered in the MKU Law Student Hub database.<br />
-                      You can manage your subscription choices at any time directly in your account settings.
-                    </p>
-                    <p style="margin: 15px 0 0 0; font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #52525b; text-transform: uppercase; letter-spacing: 1px;">
-                      Campus Registry Broadcast Code Block &bull; Verified: ${verifiedDomain}
+                  <td style="padding: 30px 40px; background-color: #f1f5f9; border-top: 1px solid #e2e8f0; text-align: left;">
+                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: #64748b; line-height: 1.5;">
+                      Sent by the MKU Law Student Hub.<br />
+                      This broadcast is directed to registered students and colleagues of Mount Kenya University School of Law. You can manage your email subscription choices in your profile settings.
                     </p>
                   </td>
                 </tr>
@@ -177,8 +176,8 @@ export default async function handler(req: Request, res: Response) {
       bcc: isSendingToTestOnly 
         ? [] 
         : (emailsCount > 1 ? emails : []),
-      subject: subject || `[MKU Law Student Hub] ${postTitle || "Latest Campus Gazette"}`,
-      html: htmlContent
+      subject: customSubject || subject || `[MKU Law Student Hub] ${postTitle || "Latest Bulletin"}`,
+      html: customHtml || defaultHtmlContent
     };
 
     // If there are no recipients because it's just a test send or empty list, route directly to the single test email
