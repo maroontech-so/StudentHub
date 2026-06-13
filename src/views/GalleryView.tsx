@@ -187,7 +187,7 @@ export function GalleryView() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("campus");
   const [uploadAlbumId, setUploadAlbumId] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   // Lightbox & Scroll state
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -269,43 +269,47 @@ export function GalleryView() {
       triggerToast("Authenticate to publish imagery.", "error");
       return;
     }
-    if (!file) {
-      triggerToast("Please select a high resolution photograph to upload", "error");
+    if (files.length === 0) {
+      triggerToast("Please select at least one photograph to upload", "error");
       return;
     }
 
     setUploadLoading(true);
 
     try {
-      // 1. Upload file object directly to ImgBB
-      const cloudUrl = await uploadToImgBB(file);
+      for (let i = 0; i < files.length; i++) {
+        const fileObj = files[i];
+        
+        // 1. Upload individual file object directly to ImgBB
+        const cloudUrl = await uploadToImgBB(fileObj);
 
-      // 2. Save document payload to Firestore
-      const payload: Partial<GalleryItem> = {
-        title,
-        description,
-        imageUrl: cloudUrl,
-        category,
-        featured: false,
-        visible: true,
-        uploadedBy: auth.currentUser.uid,
-        uploaderName: profile?.name || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "University Comrade",
-        uploadedAt: new Date()
-      };
+        // 2. Save document payload to Firestore
+        const payload: Partial<GalleryItem> = {
+          title: files.length > 1 ? `${title} (${i + 1}/${files.length})` : title,
+          description,
+          imageUrl: cloudUrl,
+          category,
+          featured: false,
+          visible: true,
+          uploadedBy: auth.currentUser.uid,
+          uploaderName: profile?.name || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "University Comrade",
+          uploadedAt: new Date()
+        };
 
-      if (uploadAlbumId) {
-        payload.albumId = uploadAlbumId;
+        if (uploadAlbumId) {
+          payload.albumId = uploadAlbumId;
+        }
+
+        await fbfs.addDocInCollection("gallery", payload);
       }
-
-      await fbfs.addDocInCollection("gallery", payload);
 
       setUploadOpen(false);
       setTitle("");
       setDescription("");
       setUploadAlbumId("");
-      setFile(null);
+      setFiles([]);
       
-      triggerToast("Imagery added successfully to the public archives!");
+      triggerToast(`Successfully uploaded ${files.length} images to the public archives!`);
       await loadPhotos();
     } catch (err: any) {
       triggerToast(err.message || "An error occurred during photograph sync", "error");
@@ -318,6 +322,8 @@ export function GalleryView() {
   const displayItems = React.useMemo(() => {
     let result = gallery;
     if (viewMode === "feed") {
+      // Clean separation: only display photos NOT linked to structured collections folders
+      result = result.filter(item => !item.albumId);
       if (categoryFilter !== "all") {
         result = result.filter(item => item.category.toLowerCase() === categoryFilter.toLowerCase());
       }
@@ -369,6 +375,28 @@ export function GalleryView() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Visual Distinctive Folder Switcher Tab */}
+      <div className="flex border-b border-gavel-border/30 gap-6 select-none shrink-0 overflow-x-auto scrollbar-none pb-1">
+        <button
+          onClick={() => {
+            setViewMode("feed");
+            setSelectedAlbumId(null);
+          }}
+          className={`pb-3 text-xs uppercase font-mono tracking-wider font-extrabold flex items-center gap-2 transition-all cursor-pointer relative ${viewMode === "feed" ? "text-gavel-yellow font-black border-b-2 border-gavel-yellow" : "text-gavel-muted hover:text-white"}`}
+        >
+          <ImageIcon size={14} />
+          <span>Comrade Photostream</span>
+        </button>
+
+        <button
+          onClick={() => setViewMode("albums")}
+          className={`pb-3 text-xs uppercase font-mono tracking-wider font-extrabold flex items-center gap-2 transition-all cursor-pointer relative ${viewMode === "albums" ? "text-gavel-yellow font-black border-b-2 border-gavel-yellow" : "text-gavel-muted hover:text-white"}`}
+        >
+          <FolderClosed size={14} />
+          <span>Collections</span>
+        </button>
       </div>
 
       {viewMode === "feed" ? (
@@ -764,16 +792,34 @@ export function GalleryView() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold">
-                  Choose Photograph
+                <label className="block text-[10px] font-mono text-gavel-muted uppercase tracking-wider mb-1.5 font-bold font-sans">
+                  Choose Photograph(s) - Select up to 15 photos
                 </label>
                 <input
                   type="file"
                   required
+                  multiple
                   accept="image/*"
-                  onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const selectedFiles = Array.from(e.target.files);
+                      if (selectedFiles.length > 15) {
+                        triggerToast("Maximum 15 photos can be uploaded at once. Only the first 15 have been queued.", "error");
+                        setFiles(selectedFiles.slice(0, 15));
+                      } else {
+                        setFiles(selectedFiles);
+                      }
+                    } else {
+                      setFiles([]);
+                    }
+                  }}
                   className="w-full text-xs text-gavel-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[10px] file:font-mono file:font-bold file:uppercase file:bg-gavel-yellow file:text-black hover:file:bg-white file:cursor-pointer cursor-pointer"
                 />
+                {files.length > 0 && (
+                  <p className="text-[10px] font-mono text-gavel-yellow uppercase mt-2 font-bold tracking-wider">
+                    {files.length} Photo{files.length > 1 ? "s" : ""} Selected to upload
+                  </p>
+                )}
               </div>
 
               <button

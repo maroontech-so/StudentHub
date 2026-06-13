@@ -4,7 +4,8 @@ import { fbfs, auth, db } from "../lib/firebase";
 import { useAuth } from "../App";
 import { Event, EventRegistration, EventRSVP } from "../types";
 import { runTransaction, doc } from "firebase/firestore";
-import { Calendar, MapPin, Clock, Users, ArrowLeft, ShieldCheck, Mail, Phone, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, ArrowLeft, ShieldCheck, Mail, Phone, ExternalLink, Share2 } from "lucide-react";
+import { ShareDialog } from "../components/ShareDialog";
 
 export function EventDetailsView() {
   const [, params] = useRoute("/events/:id");
@@ -20,6 +21,12 @@ export function EventDetailsView() {
   const [, setLocation] = useLocation();
   const { profile } = useAuth();
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [shareData, setShareData] = useState<{ isOpen: boolean; url: string; title: string; category: "Event" | "Bulletin" | "Portfolio" }>({
+    isOpen: false,
+    url: "",
+    title: "",
+    category: "Event"
+  });
 
   const triggerToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -208,9 +215,17 @@ export function EventDetailsView() {
 
   return (
     <div className="space-y-10 py-6 sm:py-8 text-left w-full select-none">
-      <Link href="/events" className="inline-flex items-center gap-1.5 text-gavel-muted hover:text-gavel-yellow text-xs font-mono uppercase tracking-widest font-black cursor-pointer transition-colors duration-200">
-        <ArrowLeft size={14} /> Back to Assemblies
-      </Link>
+      <div className="flex justify-between items-center w-full">
+        <Link href="/events" className="inline-flex items-center gap-1.5 text-gavel-muted hover:text-gavel-yellow text-xs font-mono uppercase tracking-widest font-black cursor-pointer transition-colors duration-200">
+          <ArrowLeft size={14} /> Back to Assemblies
+        </Link>
+        <button
+          onClick={() => setShareData({ isOpen: true, url: window.location.href, title: event.title, category: "Event" })}
+          className="inline-flex items-center gap-2 px-4 py-2 border border-gavel-border bg-gavel-card hover:bg-white hover:text-black hover:border-white rounded-xl text-xs font-mono uppercase tracking-widest font-black cursor-pointer transition-colors duration-150 text-gavel-muted"
+        >
+          <Share2 size={13} /> Share Event
+        </button>
+      </div>
 
       <section className="relative rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-gavel-border bg-gavel-card p-4 sm:p-8 flex flex-col md:flex-row items-center gap-6 sm:gap-8 shadow-2xl">
         <div className="w-full md:w-1/2 aspect-video rounded-2xl sm:rounded-3xl overflow-hidden border border-white/5 relative bg-[#1E1E1E]">
@@ -479,6 +494,16 @@ export function EventDetailsView() {
           <p className="flex-1">{toast.message}</p>
           <button onClick={() => setToast(null)} className="text-[10px] text-gavel-muted hover:text-white ml-2">Dismiss</button>
         </div>
+      )}
+
+      {shareData.isOpen && (
+        <ShareDialog
+          isOpen={shareData.isOpen}
+          onClose={() => setShareData(prev => ({ ...prev, isOpen: false }))}
+          url={shareData.url}
+          title={shareData.title}
+          category={shareData.category}
+        />
       )}
     </div>
   );

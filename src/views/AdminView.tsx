@@ -115,6 +115,7 @@ export function AdminView() {
   const [postCategory, setPostCategory] = useState<"Update" | "Announcement" | "Communication">("Announcement");
   const [postPlatformHomepage, setPostPlatformHomepage] = useState(true);
   const [postPlatformEmail, setPostPlatformEmail] = useState(false);
+  const [rosterViewMode, setRosterViewMode] = useState<"users" | "newsletter">("users");
 
   // Suggested item responds
   const [activeVaultPost, setActiveVaultPost] = useState<VaultPost | null>(null);
@@ -313,7 +314,7 @@ export function AdminView() {
           const allUsers = await fbfs.getCollection<UserProfile>("users");
           let targetEmails: string[] = ["micahprince60@gmail.com"];
           if (allUsers.length > 0) {
-            const list = allUsers.map(u => u.email).filter(Boolean);
+            const list = allUsers.filter(u => u.newsletterSubscribed).map(u => u.email).filter(Boolean) as string[];
             if (list.length > 0) targetEmails = list;
           }
 
@@ -327,7 +328,8 @@ export function AdminView() {
               postTitle: postTitle.trim(),
               featuredImage: postCoverImage || "",
               audience: "all",
-              emails: targetEmails
+              emails: targetEmails,
+              blocks: postBlocks
             })
           });
 
@@ -2003,60 +2005,177 @@ export function AdminView() {
           {/* TAB 6: STUDENTS ROSTER Access Control */}
           {activeTab === "roster" && (
             <div className="space-y-8 text-left animate-fade-in">
-              <div className="border-b border-white/10 pb-4">
-                <h2 className="text-3xl font-black uppercase tracking-tight text-white">Identity Access Control Matrix</h2>
-                <p className="text-sm text-gray-400 font-sans font-medium">Verify credentials, validate roles (Student, Staff, Admin) and set authorization rules.</p>
+              <div className="border-b border-white/10 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black uppercase tracking-tight text-white">Identity & Subscription Registry</h2>
+                  <p className="text-sm text-gray-400 font-sans font-medium">Verify credentials, evaluate newsletter subscription streams, and calibrate authorization rules.</p>
+                </div>
+
+                {/* Segment Selector Toggle */}
+                <div className="flex bg-[#121214] p-1 rounded-xl border border-white/5 gap-1 shadow-inner self-start md:self-auto shrink-0 select-none">
+                  <button
+                    type="button"
+                    onClick={() => setRosterViewMode("users")}
+                    className={`px-4 py-2 rounded-lg text-xs font-mono uppercase font-black tracking-wider transition-all cursor-pointer ${
+                      rosterViewMode === "users" 
+                        ? "bg-[#FFDE00] text-black shadow-md font-extrabold" 
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    User Accounts ({users.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRosterViewMode("newsletter")}
+                    className={`px-4 py-2 rounded-lg text-xs font-mono uppercase font-black tracking-wider transition-all cursor-pointer ${
+                      rosterViewMode === "newsletter"
+                        ? "bg-[#FFDE00] text-black shadow-md font-extrabold" 
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    Newsletter ({users.filter(u => u.newsletterSubscribed).length})
+                  </button>
+                </div>
               </div>
 
-              <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-black/50 border-b border-white/5 text-gray-400 font-mono text-[9px] uppercase tracking-widest">
-                      <th className="p-4 font-black">Student User Profile</th>
-                      <th className="p-4 font-black text-center">Authorization Level</th>
-                      <th className="p-4 font-black text-center">Account status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map(usr => (
-                      <tr key={usr.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <td className="p-4">
-                          <p className="font-bold text-white text-sm">{usr.name || "Prince Micah"}</p>
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">{usr.email}</p>
-                        </td>
-                        <td className="p-4 text-center">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const nextRole = usr.role === "admin" ? "student" : "admin";
-                              await fbfs.updateDocById("users", usr.id, { role: nextRole });
-                              triggerToast(`Account authorization calibrated to ${nextRole}`);
-                              await loadDatabaseRecords();
-                            }}
-                            className={`px-3 py-1.5 rounded-lg border text-[9px] font-mono uppercase font-black tracking-widest cursor-pointer ${usr.role === "admin" ? "bg-[#FFDE00]/10 border-[#FFDE00]/30 text-[#FFDE00]" : "bg-black/30 border-white/5 text-gray-400"}`}
-                          >
-                            {usr.role || "student"}
-                          </button>
-                        </td>
-                        <td className="p-4 text-center">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const nextActive = !usr.active;
-                              await fbfs.updateDocById("users", usr.id, { active: nextActive });
-                              triggerToast(`Student access status toggled successfully.`);
-                              await loadDatabaseRecords();
-                            }}
-                            className={`px-3 py-1.5 rounded-lg border text-[9px] font-mono uppercase font-black tracking-widest cursor-pointer ${usr.active ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-500"}`}
-                          >
-                            {usr.active ? "Access is active" : "Suspended"}
-                          </button>
-                        </td>
+              {rosterViewMode === "users" ? (
+                <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-black/50 border-b border-white/5 text-gray-400 font-mono text-[9px] uppercase tracking-widest">
+                        <th className="p-4 font-black">Student User Profile</th>
+                        <th className="p-4 font-black text-center">Authorization Level</th>
+                        <th className="p-4 font-black text-center">Account status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {users.map(usr => (
+                        <tr key={usr.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <td className="p-4">
+                            <p className="font-bold text-white text-sm">{usr.name || "Prince Micah"}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-gray-400 font-mono">{usr.email}</span>
+                              {usr.newsletterSubscribed && (
+                                <span className="px-1.5 py-0.2 bg-green-500/10 text-green-400 border border-green-500/20 text-[8px] font-mono rounded uppercase font-bold">Subscribed</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const nextRole = usr.role === "admin" ? "student" : "admin";
+                                await fbfs.updateDocById("users", usr.id, { role: nextRole });
+                                triggerToast(`Account authorization calibrated to ${nextRole}`);
+                                await loadDatabaseRecords();
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border text-[9px] font-mono uppercase font-black tracking-widest cursor-pointer ${usr.role === "admin" ? "bg-[#FFDE00]/10 border-[#FFDE00]/30 text-[#FFDE00]" : "bg-black/30 border-white/5 text-gray-400"}`}
+                            >
+                              {usr.role || "student"}
+                            </button>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const nextActive = !usr.active;
+                                await fbfs.updateDocById("users", usr.id, { active: nextActive });
+                                triggerToast(`Student access status toggled successfully.`);
+                                await loadDatabaseRecords();
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border text-[9px] font-mono uppercase font-black tracking-widest cursor-pointer ${usr.active ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-500"}`}
+                            >
+                              {usr.active ? "Access is active" : "Suspended"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Convenient Bulk Clipboard Utility */}
+                  <div className="p-5 bg-black/40 border border-white/10 rounded-2xl text-left space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-mono font-black text-gray-300 uppercase tracking-wider">Fast Bulk Copy Tool</h3>
+                      <button
+                        onClick={() => {
+                          const subEmails = users.filter(u => u.newsletterSubscribed).map(u => u.email).filter(Boolean).join(", ");
+                          navigator.clipboard.writeText(subEmails);
+                          triggerToast("Copied subscriber list to clipboard!");
+                        }}
+                        className="px-3 py-1.5 text-[10px] bg-[#FFDE00] text-black rounded-lg font-mono uppercase font-black tracking-wider hover:bg-white transition-all cursor-pointer shadow"
+                      >
+                        Copy All Emails
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
+                      Click the button above to copy a comma-separated list of all active subscriber emails. Perfect for manual importing into custom outreach tools.
+                    </p>
+                    <textarea
+                      readOnly
+                      value={users.filter(u => u.newsletterSubscribed).map(u => u.email).filter(Boolean).join(", ")}
+                      className="w-full h-11 bg-black/50 border border-white/5 text-gray-400 rounded-lg p-2.5 text-[10px] font-mono outline-none resize-none"
+                    />
+                  </div>
+
+                  {/* Subscribers table grid */}
+                  <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-black/50 border-b border-white/5 text-gray-400 font-mono text-[9px] uppercase tracking-widest">
+                          <th className="p-4 font-black">Subscriber Identity / Campus Mail</th>
+                          <th className="p-4 font-black text-center">Opt-in Date</th>
+                          <th className="p-4 font-black text-center">Subscription Status</th>
+                          <th className="p-4 font-black text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.filter(usr => usr.newsletterSubscribed).length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-gray-500 font-mono text-xs uppercase">
+                              No active newsletter subscribers enlisted yet
+                            </td>
+                          </tr>
+                        ) : (
+                          users.filter(usr => usr.newsletterSubscribed).map(usr => (
+                            <tr key={usr.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                              <td className="p-4">
+                                <p className="font-bold text-white text-sm">{usr.name || "Enlisted Member"}</p>
+                                <p className="text-[10px] text-[#FFDE00] font-mono mt-0.5">{usr.email}</p>
+                              </td>
+                              <td className="p-4 text-center text-gray-400 font-mono text-[10px] uppercase">
+                                {usr.createdAt ? new Date(usr.createdAt).toLocaleDateString() : "Historical Opt-in"}
+                              </td>
+                              <td className="p-4 text-center">
+                                <span className="inline-block px-2.5 py-1 bg-green-500/10 border border-green-500/30 text-green-400 text-[9px] font-mono rounded-lg uppercase font-bold tracking-wider">
+                                  ACTIVE ENLISTMENT
+                                </span>
+                              </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Unsubscribe ${usr.email} from the newsletter database?`)) {
+                                      await fbfs.updateDocById("users", usr.id, { newsletterSubscribed: false });
+                                      triggerToast("Subscriber removed successfully.");
+                                      await loadDatabaseRecords();
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 hover:bg-red-500/10 text-red-400 rounded-lg text-[9px] font-mono border border-red-500/15 uppercase font-bold tracking-widest transition-colors cursor-pointer"
+                                >
+                                  Strike Off
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2118,6 +2237,7 @@ export function AdminView() {
         postTitle={postTitle} 
         blocksCount={postBlocks.length} 
         featuredImage={postCoverImage} 
+        blocks={postBlocks}
         onSendComplete={(sub, count) => {
           setIsNlOpen(false);
           triggerToast(`Newsletter broadcast initiated successfully to ${count} students!`);

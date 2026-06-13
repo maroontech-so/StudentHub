@@ -36,6 +36,19 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
   const [requireApproval, setRequireApproval] = useState(false);
   const [errorText, setErrorText] = useState("");
 
+  // Optional minimap states
+  const [includeMap, setIncludeMap] = useState(false);
+  const [locationSourceType, setLocationSourceType] = useState<"preset" | "custom">("preset");
+
+  const MAP_PRESETS = [
+    { name: "Moot Court Chamber, MKU Thika", query: "Moot Court Chamber, Mt. Kenya University, Thika" },
+    { name: "MKU School of Law Library, Thika", query: "School of Law Library, Mt. Kenya University, Thika" },
+    { name: "Graduation Pavilion, MKU", query: "Graduation Pavilion, Mt. Kenya University, Thika" },
+    { name: "Student Union Plaza, MKU", query: "Student Union Plaza, Mt. Kenya University, Thika" },
+    { name: "Academic Hall A, MKU", query: "Academic Hall A, Mt. Kenya University, Thika" },
+    { name: "MKU Main Campus, Thika", query: "Mt. Kenya University Main Campus Thika" },
+  ];
+
   const formatDateToInput = (d: any): string => {
     if (!d) return "";
     const dateObj = d.seconds ? new Date(d.seconds * 1000) : new Date(d);
@@ -67,7 +80,13 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
         setStartTime(selectedEvent.startTime || "10:00");
         setEndTime(selectedEvent.endTime || "12:00");
         setOrganizerName(selectedEvent.organizerName || "MKU Law Faculty");
-        setGoogleMapsLink(selectedEvent.googleMapsLink || "");
+        
+        const preMapsLink = selectedEvent.googleMapsLink || "";
+        setGoogleMapsLink(preMapsLink);
+        setIncludeMap(!!preMapsLink);
+        const isPreset = MAP_PRESETS.some(p => p.query === preMapsLink || p.name === preMapsLink);
+        setLocationSourceType(isPreset ? "preset" : "custom");
+
         setIsExternalEvent(!!selectedEvent.isExternal);
         setRequireApproval(!!selectedEvent.requireApproval);
       } else {
@@ -88,6 +107,8 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
         setEndTime("12:00");
         setOrganizerName("MKU Law Faculty");
         setGoogleMapsLink("");
+        setIncludeMap(false);
+        setLocationSourceType("preset");
         setIsExternalEvent(false);
         setRequireApproval(false);
       }
@@ -140,8 +161,8 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
         setErrorText("Venue description / Chamber location is mandatory! Comrades must know where the event is physically taking place.");
         return;
       }
-      if (!googleMapsLink.trim()) {
-        setErrorText("Google Maps pins (Luma-style) is mandatory for Physical assemblies! If this is an external form click-through, change the Event Registration Mode above to 'External Link Form' first.");
+      if (includeMap && !googleMapsLink.trim()) {
+        setErrorText("You enabled the Interactive Minimap. Please enter a location query or select a preset location.");
         return;
       }
     } else {
@@ -172,7 +193,7 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
       startTime: isExternalEvent ? "" : startTime,
       endTime: isExternalEvent ? "" : endTime,
       organizerName: isExternalEvent ? "External Event" : organizerName.trim(),
-      googleMapsLink: isExternalEvent ? "" : googleMapsLink.trim(),
+      googleMapsLink: (isExternalEvent || !includeMap) ? "" : googleMapsLink.trim(),
       isExternal: isExternalEvent,
       eventType: isExternalEvent ? 'virtual' : 'physical',
       requireApproval: !isExternalEvent && requireApproval
@@ -350,7 +371,7 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
               </div>
 
               {/* Physical Locations and Google Maps (where, map like luma) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+              <div className="space-y-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4">
                 <div>
                   <label className="block text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
                     <MapPin size={10} className="text-[#FFDE00]" /> Venue / Chamber Location *
@@ -358,24 +379,111 @@ export function AdminEventModal({ isOpen, onClose, selectedEvent, targetDate, on
                   <input 
                     type="text" 
                     required 
-                    placeholder="e.g. Main Auditorium"
+                    placeholder="e.g. Main Moot Court Chambers Auditorium"
                     value={venue} 
                     onChange={(e) => setVenue(e.target.value)}
                     className="w-full bg-[#18181b]/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFDE00]/50 text-xs font-semibold"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                    <MapPin size={10} className="text-[#FFDE00]" /> Google Maps Link * (Luma style)
+
+                {/* Optional Google Map selection option */}
+                <div className="border-t border-white/5 pt-3 space-y-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input 
+                      type="checkbox"
+                      checked={includeMap}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIncludeMap(checked);
+                        if (checked && !googleMapsLink) {
+                          // Default to first preset on check
+                          setGoogleMapsLink(MAP_PRESETS[0].query);
+                          setLocationSourceType("preset");
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-white/10 bg-black accent-[#FFDE00]"
+                    />
+                    <span className="text-[11px] font-mono hover:text-white text-gray-300 font-bold uppercase tracking-wider">Embed Interactive Minimap Location PIN (Optional)</span>
                   </label>
-                  <input 
-                    type="url" 
-                    required 
-                    placeholder="e.g. https://maps.google.com/..."
-                    value={googleMapsLink} 
-                    onChange={(e) => setGoogleMapsLink(e.target.value)}
-                    className="w-full bg-[#18181b]/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FFDE00]/50 text-xs font-mono"
-                  />
+
+                  {includeMap && (
+                    <div className="bg-black/50 p-4 rounded-xl border border-white/5 space-y-4 animate-fade-in text-left">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationSourceType("preset");
+                            setGoogleMapsLink(MAP_PRESETS[0].query);
+                          }}
+                          className={`text-[10px] uppercase tracking-wider font-mono font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                            locationSourceType === "preset"
+                              ? "bg-[#FFDE00]/10 border-[#FFDE00] text-[#FFDE00]"
+                              : "border-white/5 hover:border-white/10 text-gray-400"
+                          }`}
+                        >
+                          Chamber Presets
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationSourceType("custom");
+                            setGoogleMapsLink("");
+                          }}
+                          className={`text-[10px] uppercase tracking-wider font-mono font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                            locationSourceType === "custom"
+                              ? "bg-[#FFDE00]/10 border-[#FFDE00] text-[#FFDE00]"
+                              : "border-white/5 hover:border-white/10 text-gray-400"
+                          }`}
+                        >
+                          Custom Search Query
+                        </button>
+                      </div>
+
+                      {locationSourceType === "preset" ? (
+                        <div>
+                          <label className="block text-[9px] font-mono text-gray-500 uppercase font-black mb-1.5">Select a campus preset chamber</label>
+                          <select
+                            value={googleMapsLink}
+                            onChange={(e) => setGoogleMapsLink(e.target.value)}
+                            className="w-full bg-[#18181b] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#FFDE00]"
+                          >
+                            {MAP_PRESETS.map((p) => (
+                              <option key={p.query} value={p.query}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-[9px] font-mono text-gray-500 uppercase font-black mb-1.5">Enter Map pin query / search expression</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Mount Kenya University Thika, or Thika Law Courts"
+                            value={googleMapsLink}
+                            onChange={(e) => setGoogleMapsLink(e.target.value)}
+                            className="w-full bg-[#18181b]/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#FFDE00]/50"
+                          />
+                        </div>
+                      )}
+
+                      {/* Live Minimap Embed Preview container */}
+                      {googleMapsLink.trim() && (
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase tracking-wider font-mono text-gavel-yellow font-black">Live Minimap Position Preview:</span>
+                          <div className="w-full h-32 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                            <iframe
+                              title="Event Mini map selection"
+                              width="100%"
+                              height="100%"
+                              style={{ border: 0, filter: "invert(90%) hue-rotate(180deg) grayscale(30%) contrast(110%)" }}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              src={`https://maps.google.com/maps?q=${encodeURIComponent(googleMapsLink.trim())}&amp;hl=en&amp;z=14&amp;output=embed`}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </>

@@ -23,8 +23,10 @@ import {
   User as UserIcon,
   Crown,
   Heart,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Share2
 } from "lucide-react";
+import { ShareDialog } from "../components/ShareDialog";
 
 // 11 Custom Premium Gradients and Banner Styles for Promotion Blocks
 const PROMO_GRADIENTS = [
@@ -66,6 +68,14 @@ export function MarketplaceView() {
   // Detailed Modal state
   const [selectedBiz, setSelectedBiz] = useState<MarketplaceProfile | null>(null);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+
+  // Share Modal State
+  const [shareData, setShareData] = useState<{ isOpen: boolean; url: string; title: string; category: "Event" | "Bulletin" | "Portfolio" }>({
+    isOpen: false,
+    url: "",
+    title: "",
+    category: "Portfolio"
+  });
 
   // Auth Overlay state
   const [authRequiredReason, setAuthRequiredReason] = useState<string | null>(null);
@@ -201,6 +211,20 @@ export function MarketplaceView() {
   useEffect(() => {
     loadMarketplaceData();
   }, []);
+
+  // Synchronize shared portfolio via query parameter inside MarketplaceView.tsx
+  useEffect(() => {
+    if (businesses.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedId = urlParams.get("id");
+      if (sharedId) {
+        const matched = businesses.find(b => b.id === sharedId);
+        if (matched) {
+          setSelectedBiz(matched);
+        }
+      }
+    }
+  }, [businesses]);
 
   // Filter logic
   const filteredBusinesses = businesses.filter(biz => {
@@ -708,13 +732,28 @@ export function MarketplaceView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-3 sm:p-4 animate-fade-in overflow-y-auto">
           <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl bg-[#0a0a0c] border border-gavel-border/80 p-5 sm:p-8 relative shadow-2xl space-y-8 text-left">
             
-            {/* Close button */}
-            <button
-              onClick={() => setSelectedBiz(null)}
-              className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-xl bg-white/5 border border-white/10 text-gavel-muted hover:text-white hover:bg-white/10 transition-all cursor-pointer z-20"
-            >
-              <X size={18} />
-            </button>
+            {/* Close & Share button rails */}
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-2 z-20">
+              <button
+                type="button"
+                onClick={() => setShareData({
+                  isOpen: true,
+                  url: `${window.location.origin}/marketplace?id=${selectedBiz.id}`,
+                  title: selectedBiz.businessName,
+                  category: "Portfolio"
+                })}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 text-gavel-muted hover:text-white hover:bg-[#FFDE00] hover:text-black hover:border-[#FFDE00] transition-all cursor-pointer"
+                title="Share Portfolio"
+              >
+                <Share2 size={18} />
+              </button>
+              <button
+                onClick={() => setSelectedBiz(null)}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 text-gavel-muted hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             {/* Amazon-style Bento Header: Gallery (Left) & Core Info / Cart (Right) */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-10 pb-8 border-b border-gavel-border/40">
@@ -1138,6 +1177,16 @@ export function MarketplaceView() {
           <p className="flex-1">{toast.message}</p>
           <button onClick={() => setToast(null)} className="text-[10px] text-gavel-muted hover:text-white ml-2">Dismiss</button>
         </div>
+      )}
+
+      {shareData.isOpen && (
+        <ShareDialog
+          isOpen={shareData.isOpen}
+          onClose={() => setShareData(prev => ({ ...prev, isOpen: false }))}
+          url={shareData.url}
+          title={shareData.title}
+          category={shareData.category}
+        />
       )}
 
     </div>

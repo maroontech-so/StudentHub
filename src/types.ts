@@ -10,6 +10,7 @@ export interface UserProfile {
   lastActive: any;
   role: 'student' | 'admin' | 'staff' | 'vendor';
   active: boolean;
+  newsletterSubscribed?: boolean;
 }
 
 export interface Club {
@@ -140,6 +141,7 @@ export interface VaultPost {
   timestamp: number;
   supportCount: number;
   authorName: string;
+  contactInfo?: string;
 }
 
 export interface CatalogItem {

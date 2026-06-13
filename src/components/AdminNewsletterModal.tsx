@@ -9,10 +9,11 @@ interface AdminNewsletterModalProps {
   postTitle: string;
   blocksCount: number;
   featuredImage: string;
+  blocks: any[];
   onSendComplete: (subject: string, audienceCount: number) => void;
 }
 
-export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, featuredImage, onSendComplete }: AdminNewsletterModalProps) {
+export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, featuredImage, blocks, onSendComplete }: AdminNewsletterModalProps) {
   const [subject, setSubject] = useState("");
   const [audience, setAudience] = useState<"all" | "leaders" | "vendors">("all");
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -40,7 +41,7 @@ export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, 
         setProgress(40);
         if (allUsers.length > 0) {
           if (audience === "all") {
-            const list = allUsers.map(u => u.email).filter(Boolean);
+            const list = allUsers.filter(u => u.newsletterSubscribed).map(u => u.email).filter(Boolean) as string[];
             if (list.length > 0) targetEmails = list;
           } else if (audience === "leaders") {
             const list = allUsers.filter(u => u.role === "admin" || u.role === "staff").map(u => u.email).filter(Boolean);
@@ -56,7 +57,7 @@ export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, 
 
       setProgress(60);
 
-      // 2. Dispatch real API call to Express Resend backend
+      // 2. Dispatch real API call to Express Resend backend with dynamic content blocks
       const response = await fetch("/api/send-newsletter", {
         method: "POST",
         headers: {
@@ -67,7 +68,8 @@ export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, 
           postTitle,
           featuredImage,
           audience,
-          emails: targetEmails
+          emails: targetEmails,
+          blocks: blocks || []
         })
       });
 
@@ -181,8 +183,8 @@ export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, 
               <div className="w-full md:w-1/2 p-6 bg-[#18181b]/20 flex flex-col overflow-y-auto">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 shrink-0 text-left">Email Client Blueprint Preview</p>
                 
-                <div className="flex-1 bg-white rounded-2xl overflow-hidden border border-zinc-200 flex flex-col min-h-[380px] shadow-lg text-left">
-                  <div className="bg-zinc-800 px-4 py-3 border-b border-zinc-700 shrink-0">
+                <div className="flex-1 bg-[#0c0c0e] rounded-2xl overflow-hidden border border-zinc-800 flex flex-col min-h-[380px] shadow-lg text-left">
+                  <div className="bg-[#121214] px-4 py-3 border-b border-zinc-800 shrink-0">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
                       <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/80"></div>
@@ -191,23 +193,55 @@ export function AdminNewsletterModal({ isOpen, onClose, postTitle, blocksCount, 
                     <p className="text-[11px] font-mono text-zinc-300 truncate">Subject: {subject}</p>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-6 text-black font-sans bg-white space-y-4">
-                    <div className="border-b border-zinc-100 pb-3">
+                  <div className="flex-1 overflow-y-auto p-6 font-sans bg-black space-y-4">
+                    <div className="border-b border-zinc-800 pb-3">
                       <p className="text-[10px] font-black uppercase tracking-wider text-[#FFDE00]">Modern Gavel Central</p>
-                      <h1 className="text-lg font-black text-zinc-900 mt-1 leading-tight">{postTitle || "Untitled Announcement"}</h1>
+                      <h1 className="text-lg font-black text-white mt-1 leading-tight uppercase">{postTitle || "Untitled Announcement"}</h1>
                     </div>
 
                     {featuredImage && (
-                      <div className="w-full h-36 bg-zinc-100 rounded-lg overflow-hidden">
+                      <div className="w-full h-36 bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800">
                         <img src={featuredImage} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
                     )}
 
-                    <p className="text-xs text-zinc-600 leading-relaxed font-semibold">
-                      Greetings students. We are excited to release our central administration briefing: <b>{postTitle}</b>. Head over to our portal to view full details!
-                    </p>
+                    {/* Highly strictly formatted email content section mapping the post blocks */}
+                    <div className="space-y-4 text-xs text-gray-300 leading-relaxed">
+                      {blocks && blocks.length > 0 ? (
+                        blocks.map((block: any) => {
+                          if (block.type === "h1") {
+                            return (
+                              <h2 key={block.id} className="text-sm font-black text-white uppercase border-b border-zinc-800 pb-1 pt-2">
+                                {block.content}
+                              </h2>
+                            );
+                          }
+                          if (block.type === "h2") {
+                            return (
+                              <h3 key={block.id} className="text-xs font-bold text-[#FFDE00]">
+                                {block.content}
+                              </h3>
+                            );
+                          }
+                          if (block.type === "image" && block.content) {
+                            return (
+                              <img key={block.id} src={block.content} className="w-full rounded border border-zinc-800 my-2" referrerPolicy="no-referrer" />
+                            );
+                          }
+                          return (
+                            <p key={block.id} className="whitespace-pre-wrap text-zinc-400">
+                              {block.content}
+                            </p>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-zinc-400 leading-relaxed font-semibold">
+                          Greetings students. We are excited to release our central administration briefing: <b>{postTitle}</b>. Head over to our portal to view full details!
+                        </p>
+                      )}
+                    </div>
 
-                    <div className="pt-4">
+                    <div className="pt-4 text-center">
                       <span className="inline-block px-4 py-2 bg-[#FFDE00] text-black text-[10px] font-black uppercase tracking-wider rounded-lg">
                         View Interactive Document →
                       </span>

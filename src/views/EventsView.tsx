@@ -14,6 +14,7 @@ import {
   QrCode, 
   Loader2
 } from "lucide-react";
+import { ShareDialog } from "../components/ShareDialog";
 
 export function Minimap({ googleMapsLink, className = "w-full h-32 rounded-xl overflow-hidden border border-white/5 shadow-inner" }: { googleMapsLink?: string, className?: string }) {
   if (!googleMapsLink) return null;
@@ -72,6 +73,14 @@ export function EventsView() {
 
   // Toast State
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Share Modal State
+  const [shareData, setShareData] = useState<{ isOpen: boolean; url: string; title: string; category: "Event" | "Bulletin" | "Portfolio" }>({
+    isOpen: false,
+    url: "",
+    title: "",
+    category: "Event"
+  });
 
   // Dynamic Full Registration Form states supporting Year of study and other admin configured fields
   const [isRegistering, setIsRegistering] = useState(false);
@@ -147,6 +156,20 @@ export function EventsView() {
   useEffect(() => {
     fetchAllData();
   }, [currentUser]);
+
+  // Check for shared event id in query parameters
+  useEffect(() => {
+    if (events.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedId = urlParams.get("id");
+      if (sharedId) {
+        const matched = events.find(e => e.id === sharedId);
+        if (matched) {
+          setSelectedEvent(matched);
+        }
+      }
+    }
+  }, [events]);
 
   // Date Parsing helper
   const getEventTime = (e: Event) => {
@@ -573,7 +596,12 @@ export function EventsView() {
             <div className="absolute top-4 right-4 z-20 flex gap-2">
               <button 
                 type="button"
-                onClick={() => triggerClipboardShare(`${window.location.origin}/events/${selectedEvent.id}`)}
+                onClick={() => setShareData({
+                  isOpen: true,
+                  url: `${window.location.origin}/events?id=${selectedEvent.id}`,
+                  title: selectedEvent.title,
+                  category: "Event"
+                })}
                 className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
               >
                 <Share2 size={16} />
@@ -934,6 +962,16 @@ export function EventsView() {
             </button>
           </div>
         </div>
+      )}
+
+      {shareData.isOpen && (
+        <ShareDialog
+          isOpen={shareData.isOpen}
+          onClose={() => setShareData(prev => ({ ...prev, isOpen: false }))}
+          url={shareData.url}
+          title={shareData.title}
+          category={shareData.category}
+        />
       )}
 
     </div>

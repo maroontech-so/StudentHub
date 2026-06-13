@@ -15,8 +15,11 @@ import {
   Image as ImageIcon,
   TrendingUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Share2,
+  X
 } from "lucide-react";
+import { ShareDialog } from "../components/ShareDialog";
 
 const PROMO_GRADIENTS = [
   { id: 0, classes: "from-[#FFDE00] to-[#ffae00] text-black", text: "text-black" },
@@ -47,6 +50,17 @@ export function HomeView() {
   const [countdown, setCountdown] = useState({ days: "00", hours: "00", minutes: "00", seconds: "00" });
   const [nextEventTitle, setNextEventTitle] = useState("Loading...");
 
+  // Selected Bulletin/Announcement modal state
+  const [selectedBulletin, setSelectedBulletin] = useState<Announcement | null>(null);
+
+  // Share Modal State
+  const [shareData, setShareData] = useState<{ isOpen: boolean; url: string; title: string; category: "Event" | "Bulletin" | "Portfolio" }>({
+    isOpen: false,
+    url: "",
+    title: "",
+    category: "Bulletin"
+  });
+
   const [activeDealIdx, setActiveDealIdx] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -65,8 +79,13 @@ export function HomeView() {
 
         // 2. Load upcoming published events safely with client-side filter and sorting to bypass compound query index requirements
         const rawEvList = await fbfs.getCollection<Event>("events");
+        const now = Date.now();
         const evList = rawEvList
-          .filter(e => e.published !== false && e.status !== "cancelled")
+          .filter(e => {
+            if (e.published === false || e.status === "cancelled") return false;
+            const time = e.startDate?.seconds ? e.startDate.seconds * 1000 : new Date(e.startDate).getTime();
+            return time > now;
+          })
           .sort((a, b) => {
             const timeA = a.startDate?.seconds ? a.startDate.seconds * 1000 : new Date(a.startDate).getTime();
             const timeB = b.startDate?.seconds ? b.startDate.seconds * 1000 : new Date(b.startDate).getTime();
@@ -255,6 +274,20 @@ export function HomeView() {
     loadHomeData();
   }, []);
 
+  // Synchronize shared announcement via query parameter inside HomeView.tsx
+  useEffect(() => {
+    if (announcements.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedId = urlParams.get("bulletinId");
+      if (sharedId) {
+        const matched = announcements.find(a => a.id === sharedId);
+        if (matched) {
+          setSelectedBulletin(matched);
+        }
+      }
+    }
+  }, [announcements]);
+
   // Auto-shuffle carousel deals
   useEffect(() => {
     if (flashDeals.length <= 1) return;
@@ -391,6 +424,7 @@ export function HomeView() {
                           href={ann.fileUrl} 
                           target="_blank" 
                           rel="noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
                           className="bg-[#1a1a1a] text-white px-5 py-2.5 rounded-xl text-xs font-mono uppercase tracking-widest border border-white/10 hover:bg-white hover:text-black transition-colors font-bold inline-block cursor-pointer"
                         >
                           Download PDF Attachment
@@ -771,15 +805,24 @@ export function HomeView() {
                 const emailInput = form.elements.namedItem("subscriberEmail") as HTMLInputElement;
                 const email = emailInput?.value?.trim();
                 if (!email) return;
-
                 try {
-                  await fbfs.addDocInCollection("users", {
-                    email,
-                    name: email.split("@")[0],
-                    role: "student",
-                    active: true,
-                    createdAt: Date.now()
-                  });
+                  const allUsers = await fbfs.getCollection<any>("users");
+                  const existing = allUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                  
+                  if (existing) {
+                    await fbfs.updateDocById("users", existing.id, {
+                      newsletterSubscribed: true
+                    });
+                  } else {
+                    await fbfs.addDocInCollection("users", {
+                      email,
+                      name: email.split("@")[0],
+                      role: "student",
+                      active: true,
+                      createdAt: Date.now(),
+                      newsletterSubscribed: true
+                    });
+                  }
                   
                   try {
                     await fetch("/api/send-newsletter", {
@@ -789,7 +832,11 @@ export function HomeView() {
                         subject: "Welcome to MKU Law Student Hub!",
                         postTitle: "Subscription Activated Successfully",
                         audience: "all",
-                        emails: [email]
+                        emails: [email],
+                        blocks: [
+                          { id: "s1", type: "h1", content: "Subscription Confirmed" },
+                          { id: "s2", type: "text", content: "You have successfully enlisted with the Mount Kenya University School of Law central broadcasting hub. You will receive urgent updates, court notifications, peer briefings, and other essential directives live." }
+                        ]
                       })
                     });
                   } catch (_) {}
@@ -828,6 +875,95 @@ export function HomeView() {
           <div className={`w-2 h-2 rounded-full ${toast.type === "success" ? "bg-[#FFDE00]" : "bg-red-500"}`}></div>
           <p className="flex-1 text-[#f4f4f5]">{toast.message}</p>
         </div>
+      )}
+
+      {/* DETAILED POPUP: BULLETIN / OFFICIAL ANNOUNCEMENT */}
+      {selectedBulletin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[#0d0d0f] border border-[#ffde00]/15 p-6 sm:p-8 relative shadow-2xl space-y-6 text-left">
+            {/* Action Rails */}
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex gap-2 z-20">
+              <button
+                type="button"
+                onClick={() => setShareData({
+                  isOpen: true,
+                  url: `${window.location.origin}/?bulletinId=${selectedBulletin.id}`,
+                  title: selectedBulletin.title,
+                  category: "Bulletin"
+                })}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 text-gavel-muted hover:text-white hover:bg-[#FFDE00] hover:text-black hover:border-[#FFDE00] transition-all cursor-pointer"
+                title="Share Bulletin"
+              >
+                <Share2 size={18} />
+              </button>
+              <button
+                onClick={() => setSelectedBulletin(null)}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 text-gavel-muted hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Slot */}
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center gap-3 text-xs font-mono text-gavel-muted">
+                <span className="bg-gavel-yellow/20 text-gavel-yellow text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gavel-yellow/30 leading-none">
+                  {selectedBulletin.category || "Official Announcement"}
+                </span>
+                <span>
+                  {new Date(selectedBulletin.createdAt?.seconds ? selectedBulletin.createdAt.seconds * 1000 : selectedBulletin.createdAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                  })}
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight leading-snug">
+                {selectedBulletin.title}
+              </h2>
+
+              {selectedBulletin.coverImage && (
+                <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black relative">
+                  <img
+                    src={selectedBulletin.coverImage}
+                    alt="Bulletin cover artifact"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              <p className="text-gavel-muted text-sm sm:text-base leading-relaxed whitespace-pre-wrap font-medium font-sans">
+                {selectedBulletin.content}
+              </p>
+
+              {selectedBulletin.fileUrl && (
+                <div className="pt-4 border-t border-white/5">
+                  <a
+                    href={selectedBulletin.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-gavel-yellow text-black px-6 py-3 rounded-xl text-xs font-mono font-black uppercase tracking-widest hover:bg-white transition-all cursor-pointer shadow-lg shadow-gavel-yellow/5 text-center inline-block"
+                  >
+                    Download Official PDF Document
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareData.isOpen && (
+        <ShareDialog
+          isOpen={shareData.isOpen}
+          onClose={() => setShareData(prev => ({ ...prev, isOpen: false }))}
+          url={shareData.url}
+          title={shareData.title}
+          category={shareData.category}
+        />
       )}
     </div>
   );

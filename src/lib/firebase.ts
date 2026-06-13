@@ -119,54 +119,120 @@ export const fbfs = {
       }
       return items;
     } catch (err: any) {
-      console.warn(`Firestore getCollection for "${collectionName}" errored (permissions/network). Falling back to dynamic client storage:`, err);
-      let localItems = getLocalCollection(collectionName) as T[];
+      console.warn(`Firestore targeted getCollection for "${collectionName}" errored (often due to missing index). Attempting raw online fallback with client-side filtering:`, err);
       
-      // Apply filters client-side
-      for (const f of filters) {
-        const [field, op, val] = f;
-        localItems = localItems.filter((item: any) => {
-          if (op === "==") return item[field] === val;
-          if (op === "!=") return item[field] !== val;
-          if (op === ">") return item[field] > val;
-          if (op === "<") return item[field] < val;
-          return true;
-        });
-      }
-      
-      // Apply sorting client-side
-      if (orderField) {
-        localItems.sort((a: any, b: any) => {
-          let valA = a[orderField];
-          let valB = b[orderField];
-          
-          if (valA && typeof valA === "object" && valA.seconds !== undefined) {
-            valA = valA.seconds * 1000;
-          } else if (valA instanceof Date) {
-            valA = valA.getTime();
-          } else if (typeof valA === "string" && !isNaN(Date.parse(valA))) {
-            valA = Date.parse(valA);
-          }
-          
-          if (valB && typeof valB === "object" && valB.seconds !== undefined) {
-            valB = valB.seconds * 1000;
-          } else if (valB instanceof Date) {
-            valB = valB.getTime();
-          } else if (typeof valB === "string" && !isNaN(Date.parse(valB))) {
-            valB = Date.parse(valB);
-          }
+      try {
+        // Fall back to fetching the raw online collection, then filtering/sorting client-side to bypass index requirement
+        const rawSnap = await getDocs(collection(db, collectionName));
+        let onlineItems = rawSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as T));
+        
+        if (onlineItems.length > 0) {
+          setLocalCollection(collectionName, onlineItems);
+        }
+        
+        // Apply filters client-side
+        for (const f of filters) {
+          const [field, op, val] = f;
+          onlineItems = onlineItems.filter((item: any) => {
+            if (!item) return false;
+            const itemVal = item[field];
+            if (op === "==") return itemVal === val;
+            if (op === "!=") return itemVal !== val;
+            if (op === ">") return itemVal > val;
+            if (op === "<") return itemVal < val;
+            return true;
+          });
+        }
+        
+        // Apply sorting client-side
+        if (orderField) {
+          onlineItems.sort((a: any, b: any) => {
+            let valA = a ? a[orderField] : undefined;
+            let valB = b ? b[orderField] : undefined;
+            
+            if (valA && typeof valA === "object" && valA.seconds !== undefined) {
+              valA = valA.seconds * 1000;
+            } else if (valA instanceof Date) {
+              valA = valA.getTime();
+            } else if (typeof valA === "string" && !isNaN(Date.parse(valA))) {
+              valA = Date.parse(valA);
+            }
+            
+            if (valB && typeof valB === "object" && valB.seconds !== undefined) {
+              valB = valB.seconds * 1000;
+            } else if (valB instanceof Date) {
+              valB = valB.getTime();
+            } else if (typeof valB === "string" && !isNaN(Date.parse(valB))) {
+              valB = Date.parse(valB);
+            }
 
-          if (valA === valB || valA === undefined || valB === undefined) return 0;
-          if (valA < valB) return orderDir === "asc" ? -1 : 1;
-          return orderDir === "asc" ? 1 : -1;
-        });
-      }
+            if (valA === valB) return 0;
+            if (valA === undefined) return 1;
+            if (valB === undefined) return -1;
+            if (valA < valB) return orderDir === "asc" ? -1 : 1;
+            return orderDir === "asc" ? 1 : -1;
+          });
+        }
 
-      if (limitCount) {
-        localItems = localItems.slice(0, limitCount);
-      }
+        if (limitCount) {
+          onlineItems = onlineItems.slice(0, limitCount);
+        }
 
-      return localItems;
+        return onlineItems;
+      } catch (fallbackErr: any) {
+        console.warn(`Firestore raw online backup for "${collectionName}" also failed (network/auth). Resorting to local storage hybrid backup:`, fallbackErr);
+        let localItems = getLocalCollection(collectionName) as T[];
+        
+        // Apply filters client-side
+        for (const f of filters) {
+          const [field, op, val] = f;
+          localItems = localItems.filter((item: any) => {
+            if (!item) return false;
+            const itemVal = item[field];
+            if (op === "==") return itemVal === val;
+            if (op === "!=") return itemVal !== val;
+            if (op === ">") return itemVal > val;
+            if (op === "<") return itemVal < val;
+            return true;
+          });
+        }
+        
+        // Apply sorting client-side
+        if (orderField) {
+          localItems.sort((a: any, b: any) => {
+            let valA = a ? a[orderField] : undefined;
+            let valB = b ? b[orderField] : undefined;
+            
+            if (valA && typeof valA === "object" && valA.seconds !== undefined) {
+              valA = valA.seconds * 1000;
+            } else if (valA instanceof Date) {
+              valA = valA.getTime();
+            } else if (typeof valA === "string" && !isNaN(Date.parse(valA))) {
+              valA = Date.parse(valA);
+            }
+            
+            if (valB && typeof valB === "object" && valB.seconds !== undefined) {
+              valB = valB.seconds * 1000;
+            } else if (valB instanceof Date) {
+              valB = valB.getTime();
+            } else if (typeof valB === "string" && !isNaN(Date.parse(valB))) {
+              valB = Date.parse(valB);
+            }
+
+            if (valA === valB) return 0;
+            if (valA === undefined) return 1;
+            if (valB === undefined) return -1;
+            if (valA < valB) return orderDir === "asc" ? -1 : 1;
+            return orderDir === "asc" ? 1 : -1;
+          });
+        }
+
+        if (limitCount) {
+          localItems = localItems.slice(0, limitCount);
+        }
+
+        return localItems;
+      }
     }
   },
 
@@ -182,17 +248,92 @@ export const fbfs = {
       if (limitCount) {
         q = query(q, limit(limitCount));
       }
-      return onSnapshot(q, (snap) => {
+      
+      let unsubscribeFallback: (() => void) | null = null;
+      
+      const unsubscribeMain = onSnapshot(q, (snap) => {
         const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as T));
         setLocalCollection(collectionName, items);
         callback(items);
       }, (error) => {
-        console.warn(`Firestore listener for "${collectionName}" access denied. Switching to Local Session Listener.`, error);
-        callback(getLocalCollection(collectionName) as T[]);
+        console.warn(`Firestore targeted query listener for "${collectionName}" failed. Initiating online raw listener with client-side filtering fallback:`, error);
+        
+        try {
+          const rawQuery = collection(db, collectionName);
+          unsubscribeFallback = onSnapshot(rawQuery, (snap) => {
+            let onlineItems = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as T));
+            
+            if (onlineItems.length > 0) {
+              setLocalCollection(collectionName, onlineItems);
+            }
+            
+            // Client-side filtering
+            for (const f of filters) {
+              const [field, op, val] = f;
+              onlineItems = onlineItems.filter((item: any) => {
+                if (!item) return false;
+                const itemVal = item[field];
+                if (op === "==") return itemVal === val;
+                if (op === "!=") return itemVal !== val;
+                if (op === ">") return itemVal > val;
+                if (op === "<") return itemVal < val;
+                return true;
+              });
+            }
+            
+            // Client-side sorting
+            if (orderField) {
+              onlineItems.sort((a: any, b: any) => {
+                let valA = a ? a[orderField] : undefined;
+                let valB = b ? b[orderField] : undefined;
+                
+                if (valA && typeof valA === "object" && valA.seconds !== undefined) {
+                  valA = valA.seconds * 1000;
+                } else if (valA instanceof Date) {
+                  valA = valA.getTime();
+                } else if (typeof valA === "string" && !isNaN(Date.parse(valA))) {
+                  valA = Date.parse(valA);
+                }
+                
+                if (valB && typeof valB === "object" && valB.seconds !== undefined) {
+                  valB = valB.seconds * 1000;
+                } else if (valB instanceof Date) {
+                  valB = valB.getTime();
+                } else if (typeof valB === "string" && !isNaN(Date.parse(valB))) {
+                  valB = Date.parse(valB);
+                }
+
+                if (valA === valB) return 0;
+                if (valA === undefined) return 1;
+                if (valB === undefined) return -1;
+                if (valA < valB) return orderDir === "asc" ? -1 : 1;
+                return orderDir === "asc" ? 1 : -1;
+              });
+            }
+            
+            if (limitCount) {
+              onlineItems = onlineItems.slice(0, limitCount);
+            }
+            
+            callback(onlineItems);
+          }, (fallbackErr) => {
+            console.warn(`Firestore raw online listener for "${collectionName}" also failed. Resorting to local cache listener:`, fallbackErr);
+            callback(getLocalCollection(collectionName) as T[]);
+          });
+        } catch (innerErr) {
+          callback(getLocalCollection(collectionName) as T[]);
+        }
       });
+      
+      return () => {
+        unsubscribeMain();
+        if (unsubscribeFallback) {
+          unsubscribeFallback();
+        }
+      };
     } catch (e) {
       callback(getLocalCollection(collectionName) as T[]);
-      return () => {};
+      return () => { };
     }
   },
 
